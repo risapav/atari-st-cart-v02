@@ -1,6 +1,7 @@
 # Atari ST ROM Cartridge v2 — 2× W29C040-90B (16-bit)
 
-**KiCad 10 project · Rev 1.0 · 2026-11-08 · risapav**
+**KiCad 10 project · Rev 1.0 · 2026-11-08 · risapav**  
+https://github.com/risapav/atari-st-cart-v02
 
 A read-only ROM cartridge PCB for the Atari ST/STE/Mega family.  
 Two Winbond W29C040-90B Flash EEPROMs work in parallel to provide a full 16-bit data bus.  
