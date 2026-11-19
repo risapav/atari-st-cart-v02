@@ -1,0 +1,27 @@
+# KiCad lock files
+*.lck
+
+# KiCad auto-save / backup
+*-backups/
+*.kicad_sch-bak
+*.kicad_pcb-bak
+_autosave-*
+
+# KiCad local settings (user-specific)
+*.kicad_prl
+fp-info-cache
+
+# KiCad simulation output
+*.cir
+*.net
+
+# Generated exports (netlist, update reports)
+netlist.kicad_net
+report.txt
+
+# Project history (managed separately by KiCad history plugin)
+.history/
+
+# OS cruft
+.DS_Store
+Thumbs.db
