@@ -1,7 +1,7 @@
 # Functional Analysis — Atari ST ROM Cartridge v2
 
 **Project:** cart_v02 · Rev 1.0 · 2026-11-08 · risapav  
-**Analysis date:** 2026-11-19 (updated after schematic correction)
+**Analysis date:** 2026-11-19 (updated after U1/U2 reference swap)
 
 ---
 
@@ -56,9 +56,9 @@ Local labels are sheet-local in KiCad and cannot inadvertently collide with othe
 
 ## Full Connection Verification
 
-### U2 — Low byte chip (D0–D7, /LDS)
+### U1 — Low byte chip (D0–D7, /LDS)
 
-U2 placed at schematic position (96.52, 149.86).
+U1 placed at schematic position (96.52, 149.86).
 
 | Chip pin | Signal | Pin name |
 |---|---|---|
@@ -88,9 +88,9 @@ U2 placed at schematic position (96.52, 149.86).
 | Pin 16 (GND) | GND | ✓ |
 | Pins 13–21 (D0–D7) | `ST_D0`–`ST_D7` | ✓ |
 
-### U1 — High byte chip (D8–D15, /UDS)
+### U2 — High byte chip (D8–D15, /UDS)
 
-U1 placed at schematic position (175.26, 151.13). Same address/control wiring as U2 (verified pin-by-pin), with two differences:
+U2 placed at schematic position (175.26, 151.13). Same address/control wiring as U1 (verified pin-by-pin), with two differences:
 
 | Chip pin | Signal | Note |
 |---|---|---|
@@ -124,11 +124,11 @@ Closed = GND = 0; Open = pulled HIGH = 1. ✓
 
 Unlike a simple ROM where /OE is tied to GND, this design drives each chip's /OE individually with the byte strobe:
 
-| Access type | /UDS | /LDS | U1 /OE | U2 /OE | Active chips |
+| Access type | /UDS | /LDS | U2 /OE | U1 /OE | Active chips |
 |---|---|---|---|---|---|
 | Word (16-bit) | LOW | LOW | LOW | LOW | both |
-| Upper byte only | LOW | HIGH | LOW | HIGH | U1 only |
-| Lower byte only | HIGH | LOW | HIGH | LOW | U2 only |
+| Upper byte only | LOW | HIGH | LOW | HIGH | U2 only |
+| Lower byte only | HIGH | LOW | HIGH | LOW | U1 only |
 
 This prevents bus contention when only one byte is accessed. For ROM use (read-only), bus contention would not cause damage, but the byte-strobe /OE is cleaner design practice. ✓
 
@@ -202,8 +202,8 @@ The 68000 places the high byte (MSB) at an even address. /UDS asserts for even-a
 
 | File | Chip | Contains | Byte selection |
 |---|---|---|---|
-| `rom_hi.bin` | U1 (D8–D15) | even bytes of ROM image (0, 2, 4, …) | /UDS — upper byte |
-| `rom_lo.bin` | U2 (D0–D7) | odd bytes of ROM image (1, 3, 5, …) | /LDS — lower byte |
+| `rom_hi.bin` | U2 (D8–D15) | even bytes of ROM image (0, 2, 4, …) | /UDS — upper byte |
+| `rom_lo.bin` | U1 (D0–D7) | odd bytes of ROM image (1, 3, 5, …) | /LDS — lower byte |
 
 For a banked image, lay each bank consecutively: bank 0 at offset `0x000000`, bank 1 at `0x010000`, …, bank 7 at `0x070000`. Each bank occupies 64 KB (0x10000 bytes) in each file.
 
@@ -246,9 +246,9 @@ Total accessible: 2 × 64 KB = **128 KB** per chip, **256 KB** combined.
 | /ROM4 → Chip A15 | ✅ |
 | DIP switch (B_SW1/2/3) → Chip A16/A17/A18 | ✅ |
 | ROM_CE → Chip /CE (both U1, U2) | ✅ |
-| U2 /OE → /LDS (low byte strobe) | ✅ |
-| U1 /OE → /UDS (high byte strobe) | ✅ |
+| U1 /OE → /LDS (low byte strobe) | ✅ |
+| U2 /OE → /UDS (high byte strobe) | ✅ |
 | /WE → +5V (both chips, write protect) | ✅ |
-| U2 D0–D7 → ST D0–D7 | ✅ |
-| U1 D0–D7 → ST D8–D15 | ✅ |
+| U1 D0–D7 → ST D0–D7 | ✅ |
+| U2 D0–D7 → ST D8–D15 | ✅ |
 | VCC, GND, decoupling capacitors | ✅ |

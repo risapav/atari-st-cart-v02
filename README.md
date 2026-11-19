@@ -13,7 +13,7 @@ A 3-position DIP switch selects one of 8 banks of 128 KB, giving up to **1 MB** 
 
 | Feature | Detail |
 |---|---|
-| Data bus | 16-bit (U2 → D0–D7 low byte, U1 → D8–D15 high byte) |
+| Data bus | 16-bit (U1 → D0–D7 low byte, U2 → D8–D15 high byte) |
 | ROM chips | 2× Winbond W29C040-90B (512 K × 8, DIP-32, 90 ns) |
 | Total capacity | 1 MB (8 banks × 128 KB) |
 | Address window | `$FA0000`–`$FBFFFF` (256 KB visible at once) |
@@ -39,8 +39,8 @@ SW1-1 (A16)     →   A16         ┐
 SW1-2 (A17)     →   A17         ├ bank select (8 banks)
 SW1-3 (A18)     →   A18         ┘
 /ROM3 AND /ROM4 →   /CE (both chips, wired-AND)
-/LDS            →   /OE on U2 (D0–D7, low byte chip)
-/UDS            →   /OE on U1 (D8–D15, high byte chip)
+/LDS            →   /OE on U1 (D0–D7, low byte chip)
+/UDS            →   /OE on U2 (D8–D15, high byte chip)
 /WE             →   +5V (write-protect)
 ```
 
@@ -160,8 +160,8 @@ The ERC report lists two non-functional errors:
 Each chip is 512 K × 8 and must be programmed **out of circuit** (remove from DIP socket).
 
 1. Prepare two binary files from your ROM image:
-   - `rom_hi.bin` — even bytes (D8–D15, upper byte), goes into **U1**
-   - `rom_lo.bin` — odd bytes (D0–D7, lower byte), goes into **U2**
+   - `rom_hi.bin` — even bytes (D8–D15, upper byte), goes into **U2**
+   - `rom_lo.bin` — odd bytes (D0–D7, lower byte), goes into **U1**
 2. For a banked image, lay out all banks consecutively in each chip file:  
    bank 0 at offset `0x000000`, bank 1 at `0x010000`, …, bank 7 at `0x070000`.
 3. Program each file into the respective chip using any W29C040-compatible EEPROM programmer.
