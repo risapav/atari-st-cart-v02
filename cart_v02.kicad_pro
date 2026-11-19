@@ -691,7 +691,7 @@
         "uuid": "12345678-abcd-4000-8000-0000000003e9"
       }
     ],
-    "used_designators": "#PWR1-18,#PWR1550,C1-2,J1,SW1,U1-2",
+    "used_designators": "#FLG1-2,#PWR1-18,#PWR1550,C1-2,J1,SW1,U1-2",
     "variants": []
   },
   "sheets": [

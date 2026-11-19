@@ -13,7 +13,7 @@ A 3-position DIP switch selects one of 8 banks of 128 KB, giving up to **1 MB** 
 
 | Feature | Detail |
 |---|---|
-| Data bus | 16-bit (U1 → D0–D7 low byte, U2 → D8–D15 high byte) |
+| Data bus | 16-bit (U2 → D0–D7 low byte, U1 → D8–D15 high byte) |
 | ROM chips | 2× Winbond W29C040-90B (512 K × 8, DIP-32, 90 ns) |
 | Total capacity | 1 MB (8 banks × 128 KB) |
 | Address window | `$FA0000`–`$FBFFFF` (256 KB visible at once) |
@@ -39,7 +39,8 @@ SW1-1 (A16)     →   A16         ┐
 SW1-2 (A17)     →   A17         ├ bank select (8 banks)
 SW1-3 (A18)     →   A18         ┘
 /ROM3 AND /ROM4 →   /CE (both chips, wired-AND)
-/OE             →   /OE (both chips, tied together)
+/LDS            →   /OE on U2 (D0–D7, low byte chip)
+/UDS            →   /OE on U1 (D8–D15, high byte chip)
 /WE             →   +5V (write-protect)
 ```
 
@@ -61,16 +62,17 @@ Switch closed = 0 (GND via switch) · Switch open = 1 (pulled to +5 V via 10 kΩ
 | SW1-3 | SW1-2 | SW1-1 | Bank | Offset in chip |
 |---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0x000000 |
-| 0 | 0 | 1 | 1 | 0x040000 |
-| 0 | 1 | 0 | 2 | 0x080000 |
-| 0 | 1 | 1 | 3 | 0x0C0000 |
-| 1 | 0 | 0 | 4 | 0x100000 |
-| 1 | 0 | 1 | 5 | 0x140000 |
-| 1 | 1 | 0 | 6 | 0x180000 |
-| 1 | 1 | 1 | 7 | 0x1C0000 |
+| 0 | 0 | 1 | 1 | 0x010000 |
+| 0 | 1 | 0 | 2 | 0x020000 |
+| 0 | 1 | 1 | 3 | 0x030000 |
+| 1 | 0 | 0 | 4 | 0x040000 |
+| 1 | 0 | 1 | 5 | 0x050000 |
+| 1 | 1 | 0 | 6 | 0x060000 |
+| 1 | 1 | 1 | 7 | 0x070000 |
 
 Each bank holds 128 KB visible through the ST cartridge window.  
-Both U1 and U2 must be programmed with the same bank layout (each chip carries one byte of every 16-bit word).
+U1 and U2 must be programmed independently (each chip carries one byte of every 16-bit word).  
+Each chip holds 64 KB per bank (0x10000 bytes); the combined 16-bit content per bank is 128 KB.
 
 ---
 
@@ -103,14 +105,16 @@ The TC57H1000AD-85 (Toshiba 1 M × 8 SRAM) can be substituted with these adjustm
 ## Chip Enable Logic
 
 ```
-/ROM3 ──|>|── D2 ──┬── R4 ── +5V
+/ROM3 ──|<|── D2 ──┬── R4 ── +5V
                    │
-/ROM4 ──|>|── D1 ──┴── /CE (U1 pin 22, U2 pin 22)
+/ROM4 ──|<|── D1 ──┴── /CE (U1 pin 22, U2 pin 22)
 ```
 
-Diodes D1 and D2 perform a passive wired-AND: /CE goes LOW only when **both** /ROM3 and /ROM4 are LOW simultaneously.  
-R4 (10 kΩ) keeps /CE HIGH (chips deselected) whenever neither signal is asserted.  
-This isolates the two open-drain-like ST outputs from each other without any active logic.
+`|<|` = Cathode (K) on the signal side, Anode (A) on the /CE node side.
+
+Diodes D1 and D2 perform a passive wired-OR on active-low signals: /CE goes LOW whenever **either** /ROM3 or /ROM4 is LOW.  
+When both signals are HIGH (no access), R4 (10 kΩ) holds /CE HIGH (chips deselected).  
+In practice /ROM3 and /ROM4 are never both LOW simultaneously on the ST bus, so this effectively enables the chips when EITHER region is accessed.
 
 ---
 
@@ -156,10 +160,10 @@ The ERC report lists two non-functional errors:
 Each chip is 512 K × 8 and must be programmed **out of circuit** (remove from DIP socket).
 
 1. Prepare two binary files from your ROM image:
-   - `rom_lo.bin` — even bytes (D0–D7, goes into U1)
-   - `rom_hi.bin` — odd bytes (D8–D15, goes into U2)
-2. For a banked image, lay out all banks consecutively:  
-   bank 0 at offset `0x000000`, bank 1 at `0x040000`, …, bank 7 at `0x1C0000`.
+   - `rom_hi.bin` — even bytes (D8–D15, upper byte), goes into **U1**
+   - `rom_lo.bin` — odd bytes (D0–D7, lower byte), goes into **U2**
+2. For a banked image, lay out all banks consecutively in each chip file:  
+   bank 0 at offset `0x000000`, bank 1 at `0x010000`, …, bank 7 at `0x070000`.
 3. Program each file into the respective chip using any W29C040-compatible EEPROM programmer.
 4. Insert chips with correct orientation (pin 1 at the notch end).
 5. Set SW1 to the desired bank.
