@@ -1,6 +1,6 @@
 # Atari ST ROM Cartridge v2 — 2× W29C040-90B (16-bit)
 
-**KiCad 10 project · Rev 1.0 · 2026-11-08 · risapav**  
+**KiCad 10 project · Rev 1.1 · 2026-11-08 · risapav**  
 https://github.com/risapav/atari-st-cart-v02
 
 A read-only ROM cartridge PCB for the Atari ST/STE/Mega family.  
@@ -18,7 +18,7 @@ A 3-position DIP switch selects one of 8 banks of 128 KB, giving up to **1 MB** 
 | Total capacity | 1 MB (8 banks × 128 KB) |
 | Address window | `$FA0000`–`$FBFFFF` (256 KB visible at once) |
 | Bank switching | 3-bit DIP switch (SW1) on chip A16–A18 |
-| Chip select | Wired-AND of /ROM3 + /ROM4 via 1N4148 diodes + 10 kΩ pull-up |
+| Chip select | Wired-AND of /ROM3 + /ROM4 via BAT42 diodes + 10 kΩ pull-up |
 | Write-protect | /WE permanently tied to +5 V — the ST cannot write to the chip |
 | Board size | 42 × 68 mm |
 | Connector | 40-pin dual-row edge connector, 2 mm pitch (Atari CB101494) |
@@ -78,17 +78,17 @@ Each chip holds 64 KB per bank (0x10000 bytes); the combined 16-bit content per 
 
 ## Bill of Materials
 
-| Ref | Value / Part | Package | Note |
-|---|---|---|---|
-| U1, U2 | Winbond W29C040-90B | DIP-32 W15.24 mm | 512 K × 8 Flash EEPROM, 90 ns |
-| J1 | Atari ST cartridge port | 2×20 edge, 2 mm pitch | CB101494 compatible |
-| SW1 | 3-position DIP switch | through-hole | bank select A16–A18 |
-| D1, D2 | 1N4148 | DO-35 axial | wired-AND for /CE |
-| R1 | 10 kΩ | axial | pull-up for chip A16 |
-| R2 | 10 kΩ | axial | pull-up for chip A17 |
-| R3 | 10 kΩ | axial | pull-up for chip A18 (also VPP for TC57H1000) |
-| R4 | 10 kΩ | axial | pull-up on /CE wired-AND node |
-| C1, C2 | 100 nF | — | decoupling, one per chip |
+| Ref | Value / Part | Package | LCSC | Note |
+|---|---|---|---|---|
+| U1, U2 | Winbond W29C040-90B | DIP-32 W15.24 mm | C2331 | 512 K × 8 Flash EEPROM, 90 ns |
+| J1 | Atari ST cartridge port | 2×20 edge, 2 mm pitch | — | CB101494 compatible |
+| SW1 | 3-pos slide DIP switch | THT 7.62 mm pitch | C501525 | bank select A16–A18 |
+| D1, D2 | BAT42 | DO-35 axial | C2798198 | wired-AND for /CE |
+| R1 | 10 kΩ | axial | C2903232 | pull-up for chip A16 |
+| R2 | 10 kΩ | axial | C2903232 | pull-up for chip A17 |
+| R3 | 10 kΩ | axial | C2903232 | pull-up for chip A18 (also VPP for TC57H1000) |
+| R4 | 10 kΩ | axial | C2903232 | pull-up on /CE wired-AND node |
+| C1, C2 | 100 nF | 0805 | C83055 | decoupling, one per chip |
 
 ### Alternative chip: TC57H1000AD-85
 
@@ -125,33 +125,19 @@ cart_v02/
 ├── cart_v02.kicad_pro   — KiCad 10 project file
 ├── cart_v02.kicad_sch   — schematic
 ├── cart_v02.kicad_pcb   — PCB layout
-├── gerber/              — production Gerber + drill files
-│   ├── cart_v02-F_Cu.gbr
-│   ├── cart_v02-B_Cu.gbr
-│   ├── cart_v02-F_Mask.gbr
-│   ├── cart_v02-B_Mask.gbr
-│   ├── cart_v02-F_Silkscreen.gbr
-│   ├── cart_v02-B_Silkscreen.gbr
-│   ├── cart_v02-Edge_Cuts.gbr
-│   ├── cart_v02-PTH.drl
-│   ├── cart_v02-NPTH.drl
-│   └── cart_v02-job.gbrjob
-└── ERC.rpt              — ERC report (2 minor warnings, no functional errors)
+├── my-libs/             — project-local symbol and footprint libraries
+└── production/          — fabrication output (rev 1.1)
+    ├── Atari_ST_ROM_Cartridge_v2__2_W29C040-90B_16-bit_1.1.zip
+    ├── bom.csv
+    ├── designators.csv
+    ├── netlist.ipc
+    └── positions.csv
 ```
 
 ### KiCad library dependency
 
 Custom symbols and footprints are bundled inside `my-libs/` and referenced with `${KIPRJMOD}` paths in `fp-lib-table` and `sym-lib-table`.  
 No global library installation is needed — just open `cart_v02.kicad_pro` directly.
-
----
-
-## ERC Notes
-
-The ERC report lists two non-functional errors:
-
-- `power_pin_not_driven` on `#PWR01` and `#PWR03` — standard KiCad artefact when power symbols have no explicit PWR_FLAG; does not affect the design.
-- `footprint_link_issues` on J1 — the `atari_st` footprint library must be added to the global footprint table (see above).
 
 ---
 
