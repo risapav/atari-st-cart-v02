@@ -89,6 +89,9 @@ a `bankN_hi.bin` sú výrezy chip súborov pre priame programovanie jedného ban
 Načíta jeden alebo viac ROM programov, zarovná každý na hranicu 128 KB banku,
 zreťazí ich za sebou a vygeneruje chip súbory.
 
+Podporované vstupné formáty: `.bin`, `.rom`, `.img` — a `.stc` (Steem formát):
+4-bajtová nulová hlavička je automaticky odstrihnutá pred zarovnaním.
+
 ### Zarovnanie na bank
 
 Každý program sa zaokrúhli **nahor** na násobok 128 KB (bank veľkosť):
@@ -116,6 +119,12 @@ python3 rom_pack.py mygame.bin
 # Viac programov s explicitným čipom a adresárom
 python3 rom_pack.py game1.bin game2.bin game3.bin --chip w29c040 --out build/
 
+# Mix formátov (.img, .rom, .stc) — STC hlavička sa odstraňuje automaticky
+python3 rom_pack.py etoscart.img DiagROMCart.rom BUGBCRT2.STC JOUMPCRT.STC
+
+# Názvy súborov s medzerami — Makefile ich nepodporuje, volaj python3 priamo
+python3 rom_pack.py "ST Test v4.4.img" "STE Test v1.9.img" etoscart.img
+
 # TC57H1000 (max 256 KB, 2 banky)
 python3 rom_pack.py rom.bin --chip tc57h1000 --out build/
 
@@ -128,6 +137,10 @@ python3 rom_pack.py rom.bin --save-combined
 # Vlastný pad bajt (namiesto 0xFF)
 python3 rom_pack.py rom.bin --pad 0x00
 ```
+
+> **Makefile a medzery v názvoch:** `make pack SRCS="..."` nedokáže správne spracovať
+> názvy súborov s medzerami (Makefile ich interpretuje ako oddeľovač). Pre takéto súbory
+> volaj `python3 rom_pack.py` priamo s citáciami.
 
 ### Parametre
 
@@ -398,6 +411,47 @@ make info OUTDIR=build/
 #    Bank 0: SW1-1=0, SW1-2=0, SW1-3=0
 #    Bank 1: SW1-1=1, SW1-2=0, SW1-3=0
 #    ...
+```
+
+### W29C040 — mix reálnych cartridge ROM-ov (prg/ adresár)
+
+Ak máš zdrojové ROM obrazy v adresári `prg/` (`.bin`, `.rom`, `.img`, `.stc`), najprv
+validuj zdroje a potom zabaľ — pre súbory s medzerami v názve použi `python3` priamo:
+
+```bash
+# 0. Validácia zdrojov (prg/ adresár)
+python3 rom_validate.py prg/
+
+# 1. Zabalenie — 7 programov do 7 bankov W29C040 (bank 7 ostane prázdny)
+python3 rom_pack.py \
+    prg/etoscart.img \
+    "prg/ST Test v4.4.img" \
+    "prg/STE Test v1.9.img" \
+    prg/DiagROMCart.rom \
+    prg/BUGBCRT2.STC \
+    prg/JOUMPCRT.STC \
+    prg/MXCRT.STC
+
+# 2. Kontrola výsledného chip obrazu (mapa bankov, magic podpisy)
+python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
+
+# 3. Validácia chip súborov
+#    Poznámka: bank7_lo/hi.bin budú FAIL — sú prázdne (0xFF), čo je správne
+python3 rom_validate.py out/chip_u1_lo.bin out/chip_u2_hi.bin
+
+# 4. Programovanie čipov
+#    U1 ← out/chip_u1_lo.bin  (512 KB)
+#    U2 ← out/chip_u2_hi.bin  (512 KB)
+
+# 5. Nastavenie DIP switch SW1 podľa požadovaného programu:
+#    Bank 0 (SW1=000): etoscart
+#    Bank 1 (SW1=001): ST Test v4.4
+#    Bank 2 (SW1=010): STE Test v1.9
+#    Bank 3 (SW1=011): DiagROMCart
+#    Bank 4 (SW1=100): BUGBCRT2
+#    Bank 5 (SW1=101): JOUMPCRT
+#    Bank 6 (SW1=110): MXCRT
+#    Bank 7 (SW1=111): prázdny
 ```
 
 ### TC57H1000 — 128 KB SRAM, 2 banky
