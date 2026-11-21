@@ -294,7 +294,7 @@ bajty 0x000004–0x020003:  <128 KB kombinovaný ROM obraz>
 
 Celková veľkosť súboru: **131 076 bajtov** (128 × 1024 + 4).  
 ROM obraz na offsete 4 je štandardný kombinovaný 16-bit obraz; magická hodnota na offsete 4 (ekvivalent `$FA0000`) je typicky `0xABCD`.  
-`rom_validate.py` automaticky rozpozná tento formát (veľkosť = 131 076 B, prvé 4 bajty = `00 00 00 00`) a pred analýzou hlavičku odstraní.
+`rom_validate.py` aj `rom_pack.py` automaticky rozpoznajú tento formát (veľkosť = 131 076 B, prvé 4 bajty = `00 00 00 00`) a pred spracovaním hlavičku odstraní.
 
 ### Chip súbory (LO / HI)
 
@@ -306,6 +306,14 @@ Každý čip dostane de-interleaved bajty z kombinovaného obrazu:
 | `chip_u2_hi.bin` | U2 (D8–D15) | `combined[2n]`  párne bajty | strob /UDS |
 
 Pre W29C040 s 8 bankami má každý chip súbor veľkosť 512 KB. Bank N začína na bajtovom offsete `N × 0x10000` v každom súbore.
+
+### Poznámky k validácii
+
+Pri validácii chip súborov (`chip_u1_lo.bin`, `chip_u2_hi.bin`) cez `rom_validate.py` treba mať na pamäti:
+
+- 512 KB chip súbor je veľkostne nejednoznačný: validátor ho klasifikuje ako `combined(W29)` (4 banky) aj `chip(W29)` (8 bankov). Zobrazená magická hodnota sa číta priamo z chip bajtov, nie z rekonštruovaných 16-bit slov — neodráža skutočnú prvú inštrukciu na `$FA0000`.
+- Pre správne magické hodnoty bankov rekonštruované z U1+U2 použiť `rom_info.py` s dvojicou chip súborov.
+- Prázdne per-bank súbory (`bankN_lo/hi.bin`) pre neobsadené banky budú správne zobrazovať `FAIL` (všetky bajty = 0xFF). Toto je očakávané správanie pri menšom počte naplnených bankov.
 
 ---
 

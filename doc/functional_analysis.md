@@ -295,7 +295,7 @@ bytes 0x000004–0x020003:  <128 KB combined ROM image>
 
 Total file size: **131 076 bytes** (128 × 1024 + 4).  
 The ROM image at offset 4 is a standard combined 16-bit image; the magic value at offset 4 (`$FA0000` equivalent) is typically `0xABCD`.  
-`rom_validate.py` automatically detects this format (size = 131 076 B, first 4 bytes = `00 00 00 00`) and strips the header before analysis.
+Both `rom_validate.py` and `rom_pack.py` automatically detect this format (size = 131 076 B, first 4 bytes = `00 00 00 00`) and strip the header before processing.
 
 ### Chip files (LO / HI)
 
@@ -307,6 +307,14 @@ Each chip receives de-interleaved bytes from the combined image:
 | `chip_u2_hi.bin` | U2 (D8–D15) | `combined[2n]`  even bytes | /UDS strobe |
 
 For a W29C040 with 8 banks, each chip file is 512 KB. Bank N starts at byte offset `N × 0x10000` in each file.
+
+### Validation notes
+
+When validating chip files (`chip_u1_lo.bin`, `chip_u2_hi.bin`) with `rom_validate.py`, be aware:
+
+- A 512 KB chip file is size-ambiguous: the validator classifies it as both `combined(W29)` (4 banks) and `chip(W29)` (8 banks). The magic value shown is therefore read from the chip bytes, not from the reconstructed 16-bit words — it does not reflect the real first instruction at `$FA0000`.
+- Use `rom_info.py` on the chip file pair to see the correct per-bank magic values reconstructed from U1+U2 together.
+- Empty per-bank files (`bankN_lo/hi.bin`) for unused banks will correctly show `FAIL` (all bytes = 0xFF). This is expected when fewer than the maximum number of banks are populated.
 
 ---
 
