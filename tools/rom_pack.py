@@ -50,7 +50,40 @@ def is_empty(data: bytes | bytearray, fill: int = 0xFF) -> bool:
 # Vyhľadávanie vstupných súborov
 # ---------------------------------------------------------------------------
 
-ROM_EXTENSIONS = {".bin", ".stc", ".rom", ".img"}
+ROM_EXTENSIONS  = {".bin", ".stc", ".rom", ".img"}
+ORDER_FILENAME  = "pack_order.txt"
+
+
+# ---------------------------------------------------------------------------
+# Správa súboru poradia (pack_order.txt)
+# ---------------------------------------------------------------------------
+
+def _load_order(src_dir: Path) -> list[str] | None:
+    """Načíta pack_order.txt zo src_dir. Vracia zoznam mien alebo None ak súbor neexistuje."""
+    f = src_dir / ORDER_FILENAME
+    if not f.exists():
+        return None
+    return [l.strip() for l in f.read_text(encoding="utf-8").splitlines()
+            if l.strip() and not l.strip().startswith("#")]
+
+
+def _save_order(src_dir: Path, paths: list[Path]):
+    """Zapíše pack_order.txt do src_dir s aktuálnym poradím spracovania."""
+    f = src_dir / ORDER_FILENAME
+    lines = [
+        "# ROM pack order — uprav poradie, potom znovu spusti make pack",
+        "# Jedno meno súboru na riadok. Riadky začínajúce # sú komentáre.",
+        "",
+    ] + [p.name for p in paths]
+    f.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _apply_order(paths: list[Path], order: list[str]) -> list[Path]:
+    """Zoradí paths podľa order; súbory chýbajúce v order sa pridajú abecedne na koniec."""
+    by_name = {p.name: p for p in paths}
+    result  = [by_name.pop(n) for n in order if n in by_name]
+    result += sorted(by_name.values(), key=lambda p: p.name.lower())
+    return result
 
 
 def collect_inputs(inputs: list[str]) -> list[Path] | None:
@@ -86,12 +119,19 @@ def collect_inputs(inputs: list[str]) -> list[Path] | None:
 # ---------------------------------------------------------------------------
 
 def pack(args):
-    chip = resolve_chip(args.chip)
-    ckey = chip_key(args.chip)
-    csize = combined_size(chip)
-    bank_sz = chip["bank_combined"]
+    import shutil
+
+    chip      = resolve_chip(args.chip)
+    ckey      = chip_key(args.chip)
+    csize     = combined_size(chip)
+    bank_sz   = chip["bank_combined"]
     num_banks = chip["num_banks"]
-    pad_byte = args.pad & 0xFF
+    pad_byte  = args.pad & 0xFF
+
+    # Zisti či vstupom je jediný adresár (aktivuje order file a číslované kópie)
+    source_dir: Path | None = None
+    if len(args.inputs) == 1 and Path(args.inputs[0]).is_dir():
+        source_dir = Path(args.inputs[0])
 
     input_paths = collect_inputs(args.inputs)
     if input_paths is None:
@@ -100,9 +140,24 @@ def pack(args):
         print("  CHYBA: žiadne vstupné súbory.", file=sys.stderr)
         return 1
 
+    # Aplikuj pack_order.txt ak existuje
+    order_used = False
+    if source_dir is not None:
+        order = _load_order(source_dir)
+        if order is not None:
+            input_paths = _apply_order(input_paths, order)
+            order_used  = True
+            new_files = [p for p in input_paths if p.name not in set(order)]
+            if new_files:
+                print(f"  Nové súbory pridané na koniec: "
+                      f"{', '.join(p.name for p in new_files)}")
+
     print(f"╔══ rom_pack ════════════════════════════════════════════════")
     print(f"║  Čip:      {chip['name']}")
     print(f"║  Kapacita: {fmt_size(csize)} kombinovaných  │  {num_banks} bankov × {fmt_size(bank_sz)}")
+    if source_dir is not None:
+        order_label = ORDER_FILENAME if order_used else f"abecedne → uloží {ORDER_FILENAME}"
+        print(f"║  Zdroj:    {source_dir}/  ({order_label})")
     if chip["notes"]:
         print(f"║")
         for note in chip["notes"]:
@@ -111,9 +166,10 @@ def pack(args):
     print()
 
     # Kombinovaný obraz naplníme pad bajt-om (erase stav)
-    combined = bytearray([pad_byte] * csize)
-    offset = 0
-    bank = 0
+    combined    = bytearray([pad_byte] * csize)
+    offset      = 0
+    bank        = 0
+    bank_sources: list[tuple[int, Path]] = []  # (bank_start, source_path)
 
     # --- Spracovanie vstupných súborov ---
     for p in input_paths:
@@ -132,9 +188,10 @@ def pack(args):
             data = data[4:]
             stc_stripped = True
 
-        padded = align_up(len(data), bank_sz)
-        banks_needed = padded // bank_sz
+        padded         = align_up(len(data), bank_sz)
+        banks_needed   = padded // bank_sz
         banks_remaining = num_banks - bank
+        bank_start     = bank
 
         label = f"  [{bank}] {p.name}"
         print(f"{label}")
@@ -150,16 +207,16 @@ def pack(args):
                   f" potrebné {banks_needed}.", file=sys.stderr)
             if args.force:
                 print("         --force: pokračujem napriek chybe (dáta budú orezané).")
-                padded = banks_remaining * bank_sz
-                data = data[:padded]
+                padded       = banks_remaining * bank_sz
+                data         = data[:padded]
                 banks_needed = banks_remaining
             else:
                 return 1
 
         combined[offset:offset + len(data)] = data
-        # zvyšok banku zostáva pad_byte (pad_byte je tam od inicializácie)
         offset += padded
-        bank += banks_needed
+        bank   += banks_needed
+        bank_sources.append((bank_start, p))
         print()
 
     # --- Súhrn ---
@@ -187,12 +244,12 @@ def pack(args):
     chip_u2.write_bytes(u2)
     written += [chip_u1, chip_u2]
 
-    # Per-bank súbory
+    # Per-bank chip súbory
     bsz = chip["bank_per_chip"]
     for b in range(num_banks):
         boff = b * bsz
-        lo = u1[boff:boff + bsz]
-        hi = u2[boff:boff + bsz]
+        lo   = u1[boff:boff + bsz]
+        hi   = u2[boff:boff + bsz]
         f_lo = out / f"bank{b}_lo.bin"
         f_hi = out / f"bank{b}_hi.bin"
         f_lo.write_bytes(lo)
@@ -211,6 +268,18 @@ def pack(args):
     print(f"    bank{{N}}_lo/hi.bin  {num_banks} × 2 × {fmt_size(bsz)}")
     if args.save_combined:
         print(f"    combined.bin     {fmt_size(len(combined))}  sha1:{sha1_short(combined)}")
+
+    # Číslované kópie zdrojových súborov + order file (len pre directory vstup)
+    if source_dir is not None:
+        print(f"    — číslované kópie zdrojov:")
+        for b_start, src in bank_sources:
+            dest = out / f"bank{b_start}_{src.name}"
+            shutil.copy2(src, dest)
+            print(f"      bank{b_start}_{src.name}")
+            written.append(dest)
+
+        _save_order(source_dir, [src for _, src in bank_sources])
+        print(f"\n  Poradie uložené: {source_dir / ORDER_FILENAME}")
 
     print()
     print("  Hotovo.")
