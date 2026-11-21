@@ -56,6 +56,10 @@ MAGIC_TABLE: dict[int, tuple[str, str]] = {
     0x4E73: ("RTE (bad first instr)",         "WARN"),
     0x4E77: ("RTR (bad first instr)",         "WARN"),
     0x4E4F: ("TRAP #15",                      "WARN"),
+    # Atari ST cartridge magic — TOS scanuje cartridge port na tieto hodnoty
+    0xFA52: ("Atari ST cart magic (FA52/235x)", "OK"),
+    # LINE-A — používaný ako vstupný bod niektorých cartridge programov
+    0xABCD: ("LINE-A #0xBCD (cartridge entry)", "OK"),
     # Jednoznačne neplatné
     0x60FE: ("BRA.S *-0 (infinite loop!)",    "FAIL"),
     0x4AFC: ("ILLEGAL",                       "FAIL"),
@@ -74,10 +78,11 @@ def _classify_magic(word: int) -> tuple[str, str]:
         return (f"BRA.B {sign}{abs(off)} bytes", "OK")
     if hi == 0x60 and lo == 0xFF:
         return ("BRA.B -1 (unusual)", "WARN")
+    # F-line (koprocessor / systémové traps) — môže byť platné, ale neobvyklé
+    if hi == 0xFF:
+        return (f"F-line trap (0x{word:04X})", "WARN")
     # Horné bity 00/01/10 sú bežné 68000 inštrukcie (MOVE, ADD, AND...)
-    if (hi >> 6) in (0b00, 0b01, 0b10, 0b11):
-        return (f"68000 inštrukcia (0x{word:04X})", "INFO")
-    return (f"neznáma hodnota (0x{word:04X})", "WARN")
+    return (f"68000 inštrukcia (0x{word:04X})", "INFO")
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +175,7 @@ def _short_format(hits: list[FormatHit]) -> str:
         if label not in seen:
             parts.append(label)
             seen.add(label)
-    return " / ".join(parts[:3])
+    return " / ".join(parts[:2])
 
 
 def _compat_str(hits: list[FormatHit]) -> str:
@@ -200,6 +205,15 @@ def _count_used_banks(data: bytes | bytearray, bank_size: int, fill: int = 0xFF)
 
 def _sha1(data: bytes | bytearray) -> str:
     return hashlib.sha1(data).hexdigest()[:10]
+
+
+# Prípony, pri ktorých skúšame STC detekciu aj bez .stc prípony
+_STC_HEADER = b'\x00\x00\x00\x00'
+_STC_ROM_SIZE = 128 * 1024
+
+def _is_stc(data: bytes) -> bool:
+    """True ak súbor má 4-bajtovú Steem hlavičku pred 128 KB ROM obrazom."""
+    return (len(data) == _STC_ROM_SIZE + 4 and data[:4] == _STC_HEADER)
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +249,12 @@ def analyse_file(path: Path) -> FileResult:
         return r
 
     data = path.read_bytes()
+
+    # STC formát (Steem emulátor): 4-bajtová nulová hlavička pred 128 KB ROM obrazom
+    if _is_stc(data):
+        data = data[4:]
+        r.notes.insert(0, "STC: 4-bajtová hlavička odstránená (Steem formát)")
+
     r.size    = len(data)
     r.sha1    = _sha1(data)
     r.formats = _detect_formats(r.size)
@@ -267,6 +287,12 @@ def analyse_file(path: Path) -> FileResult:
         if len(data) >= 2:
             r.magic_word   = struct.unpack_from(">H", data, 0)[0]
             r.magic_desc, r.magic_status = _classify_magic(r.magic_word)
+
+        # Atari ST cartridge: druhé slovo upresní variant (235F / 235A)
+        if r.magic_word == 0xFA52 and len(data) >= 4:
+            second = struct.unpack_from(">H", data, 2)[0]
+            if second in (0x235F, 0x235A):
+                r.magic_desc = f"Atari ST cart magic (FA52/{second:04X})"
 
         # GEMDOS hlavička
         if r.magic_word == GEMDOS_MAGIC:
@@ -379,12 +405,12 @@ def print_main_table(results: list[FileResult]):
     W = {
         "file":   W_FILE,
         "size":   8,
-        "fmt":    22,
+        "fmt":    30,
         "compat": 12,
         "banks":  9,
         "fill":   7,
         "magic":  8,
-        "mdesc":  28,
+        "mdesc":  36,
         "status": 5,
     }
 
@@ -492,10 +518,10 @@ def collect_paths(inputs: list[str]) -> list[Path]:
     for s in inputs:
         p = Path(s)
         if p.is_dir():
-            found: list[Path] = []
-            for ext in sorted(ROM_EXTENSIONS):
-                found.extend(p.glob(f"*{ext}"))
-            found = sorted(set(found))
+            found: list[Path] = sorted(
+                f for f in p.iterdir()
+                if f.is_file() and f.suffix.lower() in ROM_EXTENSIONS
+            )
             if not found:
                 exts = " / ".join(sorted(ROM_EXTENSIONS))
                 print(f"  Adresár {p} neobsahuje žiadne súbory ({exts}).")
