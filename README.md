@@ -139,7 +139,8 @@ cart_v02/
 │   ├── rom_info.py         — display bank map and chip statistics
 │   ├── rom_validate.py     — validate ROM files (.bin/.stc/.rom/.img): size, magic, STC strip
 │   ├── Makefile            — shortcuts: pack / split / info / validate (PRGDIR=prg/)
-│   ├── README.md           — full tool documentation
+│   ├── README.md           — full tool documentation (SK)
+│   ├── README_en.md        — full tool documentation (EN)
 │   └── prg/                — source ROM images (default input for make pack)
 ├── doc/
 │   ├── functional_analysis.md    — address decoding, CE logic, ROM formats (EN)
@@ -206,7 +207,7 @@ Manual procedure (without scripts):
 > The W29C040-90B supports in-system Software Data Protection (SDP).  
 > Disable SDP before programming if your programmer requires it.
 
-See `tools/README.md` for full documentation including TC57H1000AD-85 support.
+See `tools/README_en.md` (EN) or `tools/README.md` (SK) for full documentation including TC57H1000AD-85 support.
 
 ---
 
