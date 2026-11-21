@@ -7,6 +7,7 @@
 #   SRCS    — vstupné ROM súbory oddelené medzerami
 #   SRC     — jeden vstupný súbor pre cieľ split
 #   PAD     — výplňový bajt (default: 0xFF)
+#   VALDIR  — adresár na validáciu (default: out/)
 #
 # Príklady:
 #   make pack SRCS="game.bin"
@@ -14,6 +15,8 @@
 #   make pack SRCS="rom.bin" CHIP=tc57h1000 OUTDIR=build/
 #   make split SRC=combined.bin
 #   make info
+#   make validate
+#   make validate VALDIR=build/ --detail
 #   make clean
 # =============================================================================
 
@@ -23,15 +26,18 @@ OUTDIR  ?= out
 PAD     ?= 0xFF
 SRCS    ?=
 SRC     ?=
+VALDIR  ?= out
+DETAIL  ?=
 
-PACK_SCRIPT  := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))rom_pack.py
-SPLIT_SCRIPT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))rom_split.py
-INFO_SCRIPT  := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))rom_info.py
+PACK_SCRIPT     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))rom_pack.py
+SPLIT_SCRIPT    := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))rom_split.py
+INFO_SCRIPT     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))rom_info.py
+VALIDATE_SCRIPT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))rom_validate.py
 
 CHIP_U1 := $(OUTDIR)/chip_u1_lo.bin
 CHIP_U2 := $(OUTDIR)/chip_u2_hi.bin
 
-.PHONY: pack split info clean help check-srcs check-src check-out
+.PHONY: pack split info validate clean help check-srcs check-src check-out
 
 # -----------------------------------------------------------------------------
 # help — vypíše dostupné ciele
@@ -41,17 +47,19 @@ help:
 	@echo "  Atari ST ROM Cartridge v2 — ROM príprava"
 	@echo "  ─────────────────────────────────────────"
 	@echo "  Ciele:"
-	@echo "    pack   Zabaľ ROM programy do chip súborov"
-	@echo "    split  Rozdeľ existujúci kombinovaný obraz na LO/HI"
-	@echo "    info   Zobraz informácie o chip súboroch"
-	@echo "    clean  Zmaž výstupný adresár"
-	@echo "    help   Tento text"
+	@echo "    pack      Zabaľ ROM programy do chip súborov"
+	@echo "    split     Rozdeľ existujúci kombinovaný obraz na LO/HI"
+	@echo "    info      Zobraz informácie o chip súboroch"
+	@echo "    validate  Validuj ROM súbory (veľkosť, magic, obsah)"
+	@echo "    clean     Zmaž výstupný adresár"
+	@echo "    help      Tento text"
 	@echo ""
 	@echo "  Premenné:"
 	@echo "    CHIP=$(CHIP)   (w29c040 | tc57h1000)"
 	@echo "    OUTDIR=$(OUTDIR)"
 	@echo "    SRCS=$(if $(SRCS),$(SRCS),(neuvedené — použiť: make pack SRCS='a.bin b.bin'))"
 	@echo "    SRC=$(if $(SRC),$(SRC),(neuvedené — použiť: make split SRC=combined.bin))"
+	@echo "    VALDIR=$(VALDIR)  (pre make validate)"
 	@echo "    PAD=$(PAD)"
 	@echo ""
 
@@ -122,6 +130,22 @@ info: check-out
 	$(PYTHON) $(INFO_SCRIPT) \
 		--chip $(CHIP) \
 		$(CHIP_U1) $(CHIP_U2)
+
+# -----------------------------------------------------------------------------
+# validate — overí ROM súbory v adresári
+# -----------------------------------------------------------------------------
+validate:
+	$(PYTHON) $(VALIDATE_SCRIPT) \
+		--chip $(CHIP) \
+		$(if $(DETAIL),--detail,) \
+		$(VALDIR)
+
+# Validácia s per-bank detailom
+validate-detail:
+	$(PYTHON) $(VALIDATE_SCRIPT) \
+		--chip $(CHIP) \
+		--detail \
+		$(VALDIR)
 
 # -----------------------------------------------------------------------------
 # clean
