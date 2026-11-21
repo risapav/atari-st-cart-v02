@@ -122,16 +122,31 @@ In practice /ROM3 and /ROM4 are never both LOW simultaneously on the ST bus, so 
 
 ```
 cart_v02/
-├── cart_v02.kicad_pro   — KiCad 10 project file
-├── cart_v02.kicad_sch   — schematic
-├── cart_v02.kicad_pcb   — PCB layout
-├── my-libs/             — project-local symbol and footprint libraries
-└── production/          — fabrication output (rev 1.1)
-    ├── Atari_ST_ROM_Cartridge_v2__2_W29C040-90B_16-bit_1.1.zip
-    ├── bom.csv
-    ├── designators.csv
-    ├── netlist.ipc
-    └── positions.csv
+├── cart_v02.kicad_pro      — KiCad 10 project file
+├── cart_v02.kicad_sch      — schematic
+├── cart_v02.kicad_pcb      — PCB layout
+├── my-libs/                — project-local symbol and footprint libraries
+├── production/             — fabrication output (rev 1.1)
+│   ├── Atari_ST_ROM_Cartridge_v2__2_W29C040-90B_16-bit_1.1.zip
+│   ├── bom.csv
+│   ├── designators.csv
+│   ├── netlist.ipc
+│   └── positions.csv
+├── tools/                  — Python scripts for ROM image preparation
+│   ├── chips.py            — chip definitions (W29C040, TC57H1000)
+│   ├── rom_pack.py         — pack & align multiple ROMs → chip files
+│   ├── rom_split.py        — split combined 16-bit image → LO + HI
+│   ├── rom_info.py         — display bank map and chip statistics
+│   ├── rom_validate.py     — validate ROM files (size, magic, content)
+│   ├── Makefile            — shortcuts: pack / split / info / validate
+│   └── README.md           — full tool documentation
+├── doc/
+│   └── functional_analysis.md   — address decoding, CE logic, memory map
+└── test/                   — virtual cartridge simulation (Python)
+    ├── cartridge_model.py  — hardware model of the cartridge bus
+    ├── generate_test_roms.py
+    ├── run_tests.py        — 73 tests: address decode, bank switch, CE logic
+    └── TESTING.md          — test methodology and results
 ```
 
 ### KiCad library dependency
@@ -145,17 +160,45 @@ No global library installation is needed — just open `cart_v02.kicad_pro` dire
 
 Each chip is 512 K × 8 and must be programmed **out of circuit** (remove from DIP socket).
 
-1. Prepare two binary files from your ROM image:
-   - `rom_hi.bin` — even bytes (D8–D15, upper byte), goes into **U2**
-   - `rom_lo.bin` — odd bytes (D0–D7, lower byte), goes into **U1**
-2. For a banked image, lay out all banks consecutively in each chip file:  
-   bank 0 at offset `0x000000`, bank 1 at `0x010000`, …, bank 7 at `0x070000`.
-3. Program each file into the respective chip using any W29C040-compatible EEPROM programmer.
+The `tools/` directory contains Python scripts that automate all preparation steps:
+
+```bash
+cd tools/
+
+# Pack one or more ROM programs → chip files (auto-aligned to 128 KB banks)
+python3 rom_pack.py game.bin --out build/
+python3 rom_pack.py p1.bin p2.bin p3.bin --out build/
+
+# Validate before burning — checks size, magic constants, GEMDOS header
+python3 rom_validate.py build/
+python3 rom_validate.py build/ --detail   # per-bank table + GEMDOS detail
+
+# Display bank map and chip signatures
+python3 rom_info.py build/chip_u1_lo.bin build/chip_u2_hi.bin
+```
+
+Or use the Makefile:
+
+```bash
+make pack SRCS="game.bin" OUTDIR=build/
+make validate VALDIR=build/
+make info OUTDIR=build/
+```
+
+Manual procedure (without scripts):
+
+1. Prepare two binary files by de-interleaving the combined ROM image:
+   - `chip_u2_hi.bin` — even bytes (D8–D15, upper byte) → **U2**
+   - `chip_u1_lo.bin` — odd bytes (D0–D7, lower byte) → **U1**
+2. For a banked image, place each bank at offset `bank × 0x10000` in each chip file.
+3. Program each chip file into the respective chip using any W29C040-compatible EEPROM programmer.
 4. Insert chips with correct orientation (pin 1 at the notch end).
 5. Set SW1 to the desired bank.
 
 > The W29C040-90B supports in-system Software Data Protection (SDP).  
 > Disable SDP before programming if your programmer requires it.
+
+See `tools/README.md` for full documentation including TC57H1000AD-85 support.
 
 ---
 

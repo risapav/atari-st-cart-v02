@@ -14,6 +14,7 @@ viacerých programov a rozdelenie výsledného obrazu na LO (U1) a HI (U2) chip 
 | `rom_pack.py` | Zabaľ a zreťaz ROM programy → chip súbory |
 | `rom_split.py` | Rozdeľ existujúci kombinovaný 16-bit obraz → LO + HI |
 | `rom_info.py` | Zobraz štatistiky a mapu bankov chip súborov |
+| `rom_validate.py` | Validuj ROM súbory — veľkosť, magic, obsah, GEMDOS hlavička |
 | `Makefile` | Skratky pre bežné operácie |
 
 ---
@@ -212,6 +213,93 @@ python3 rom_info.py out/bank2_lo.bin out/bank2_hi.bin --bank 2
 
 ---
 
+## rom_validate.py — validácia ROM obrazov
+
+Skontroluje súbory v adresári (alebo priamo zadané súbory) a overí každý voči
+sade kritérií. Výstupom je prehľadová tabuľka so stĺpcami veľkosť, formát,
+kompatibilita čipu, obsadené banky, magic konštanta a celkový stav `PASS / WARN / FAIL`.
+
+### Čo sa kontroluje
+
+| Kontrola | Detail |
+|---|---|
+| Veľkosť a zarovnanie | Súbor musí byť násobok 64 KB; musí sa vmestiť do kapacity čipu |
+| Detekcia formátu | `combined` (16-bit interleaved) / `chip` (lo alebo hi) / `bank` (64 KB výrez) |
+| Kompatibilita čipu | W29C040 (max 1 MB) / TC57H1000 (max 256 KB) / oba / žiadny |
+| Obsah bankov | Počet obsadených bankov, percento naplnenia (≠ 0xFF) |
+| Magic konštanta | Prvé 16-bit slovo na $FA0000; klasifikovaný voči 25+ hodnotám |
+| GEMDOS hlavička | Ak magic = `0x601A`: parsuje TLEN/DLEN/BLEN/SLEN/ABSFLAG, hlási chyby |
+| Per-bank SHA-1 | Kontrolný súčet každého banku pre identifikáciu obsahu |
+
+### Magické konštanty
+
+Skript klasifikuje prvé 16-bit slovo kombinovaného obrazu (adresa `$FA0000`):
+
+| Hodnota | Popis | Stav |
+|---|---|---|
+| `0x601A` | GEMDOS exec magic — TOS tento program automaticky spustí | OK |
+| `0x601C` | GEMDOS exec (variant) | OK |
+| `0x4EF9` | `JMP abs.l` — priamy ROM kód | OK |
+| `0x4EB9` | `JSR abs.l` | OK |
+| `0x6000` | `BRA.W` — vetva s 16-bit offsetom | OK |
+| `0x60xx` (xx ≠ 00, FE) | `BRA.B ±N` — krátkodobá vetva | OK |
+| `0x48E7` | `MOVEM.L regs,-(SP)` — C/ASM prológ | OK |
+| `0x41FA`, `0x43FA` | `LEA d(PC),An` — position-independent kód | OK |
+| `0x4E71` | `NOP` — neobvyklé na začiatku | WARN |
+| `0x4E75` | `RTS` — prvá inštrukcia by nemala byť návrat | WARN |
+| `0x60FE` | `BRA.S *-0` — nekonečná slučka | FAIL |
+| `0x4AFC` | `ILLEGAL` — zakázaná inštrukcia | FAIL |
+| `0xFFFF` | Nevymazaná flash (erase stav) | FAIL |
+| `0x0000` | Nulovaná pamäť | FAIL |
+
+### Stavy výsledku
+
+| Stav | Podmienka |
+|---|---|
+| `PASS` | Platná veľkosť, neprázdny obsah, platná prvá inštrukcia |
+| `WARN` | Platná veľkosť, ale čiastočne obsadený / neobvyklá magic / chybná GEMDOS hlavička / príliš málo obsahu |
+| `FAIL` | Neplatná veľkosť, prázdny súbor (all-0xFF), škodlivá magic (inf. loop, ILLEGAL) |
+
+### Príklady
+
+```bash
+# Validácia celého adresára
+python3 rom_validate.py out/
+
+# Konkrétne súbory
+python3 rom_validate.py combined.bin chip_u1_lo.bin chip_u2_hi.bin
+
+# Zobraziť aj per-bank tabuľku a GEMDOS detail
+python3 rom_validate.py out/ --detail
+
+# Filtrovanie pre konkrétny čip
+python3 rom_validate.py out/ --chip tc57h1000
+```
+
+### Parametre
+
+| Parameter | Default | Popis |
+|---|---|---|
+| `SÚBOR_ALEBO_ADRESÁR` | (povinné) | Jeden alebo viac súborov, alebo adresár s `.bin` súbormi |
+| `--chip` | — | Filtrovať výsledky pre daný čip (`w29c040` / `tc57h1000`) |
+| `--detail` | — | Vypísať per-bank tabuľku a GEMDOS detail pre combined obrazy |
+
+### Príklad výstupu
+
+```
+  Súbor                Veľkosť   Formát           Čip        Banky    Obsah    Magic     Popis magic                   Stav
+  ───────────────────  ────────  ───────────────  ─────────  ───────  ───────  ────────  ────────────────────────────  ─────
+  combined.bin         1 MB      combined(W29)    Winbond    2/8      3.1%     0x601A    GEMDOS exec (TOS autoboot)    WARN
+                       obsadené 2/8 bankov
+  chip_u1_lo.bin       512 KB    chip(W29)        Winbond    8/8      99.6%    —         — (chip súbor)                PASS
+  empty.bin            128 KB    combined(TC5)…   oba        0/1      0%       0xFFFF    Flash erased (0xFF fill)      FAIL
+                       súbor je prázdny (všetky bajty = 0xFF)
+
+  Súhrn: 3 súborov  │  1 PASS  │  1 WARN  │  1 FAIL
+```
+
+---
+
 ## Makefile
 
 Skratky pre bežné workflow:
@@ -236,6 +324,13 @@ make split SRC=combined.bin
 # Zobraz info o chip súboroch
 make info
 
+# Validácia (prehľadová tabuľka)
+make validate
+make validate VALDIR=build/ CHIP=tc57h1000
+
+# Validácia s per-bank detailom a GEMDOS výpisom
+make validate-detail
+
 # Zmaž výstupný adresár
 make clean
 ```
@@ -245,7 +340,8 @@ Premenné Makefile:
 | Premenná | Default | Popis |
 |---|---|---|
 | `CHIP` | `w29c040` | Typ čipu |
-| `OUTDIR` | `out/` | Výstupný adresár |
+| `OUTDIR` | `out/` | Výstupný adresár (pre `pack`, `split`, `info`) |
+| `VALDIR` | `out/` | Adresár na validáciu (pre `validate`) |
 | `SRCS` | — | Vstupné súbory (pre `pack`) |
 | `SRC` | — | Jeden vstupný súbor (pre `split`) |
 | `PAD` | `0xFF` | Výplňový bajt |
@@ -260,14 +356,18 @@ Premenné Makefile:
 # 1. Príprava chip súborov
 make pack SRCS="game1.bin game2.bin" OUTDIR=build/
 
-# 2. Kontrola rozloženia
+# 2. Validácia pred programovaním
+make validate VALDIR=build/
+make validate-detail VALDIR=build/   # s per-bank detailom
+
+# 3. Kontrola obsahu (mapa bankov, podpisy)
 make info OUTDIR=build/
 
-# 3. Programovanie čipov (externým programátorom)
+# 4. Programovanie čipov (externým programátorom)
 #    U1 ← build/chip_u1_lo.bin
 #    U2 ← build/chip_u2_hi.bin
 
-# 4. Nastavenie DIP switch SW1
+# 5. Nastavenie DIP switch SW1
 #    Bank 0: SW1-1=0, SW1-2=0, SW1-3=0
 #    Bank 1: SW1-1=1, SW1-2=0, SW1-3=0
 #    ...
@@ -279,11 +379,14 @@ make info OUTDIR=build/
 # 1. Príprava (max 256 KB, 2 banky)
 make pack SRCS="rom.bin" CHIP=tc57h1000 OUTDIR=build/
 
-# 2. Kontrola + varovania pre SW1
+# 2. Validácia (zobrazí varovania pre SW1-3 / SW1-2)
+make validate CHIP=tc57h1000 VALDIR=build/
+
+# 3. Kontrola + varovania pre SW1
 make info CHIP=tc57h1000 OUTDIR=build/
 
-# 3. Programovanie U1 ← build/chip_u1_lo.bin, U2 ← build/chip_u2_hi.bin
-# 4. SW1-3 musí ostať OPEN (VPP); SW1-1 vyberá bank 0 alebo 1
+# 4. Programovanie U1 ← build/chip_u1_lo.bin, U2 ← build/chip_u2_hi.bin
+# 5. SW1-3 musí ostať OPEN (VPP); SW1-1 vyberá bank 0 alebo 1
 ```
 
 ---
