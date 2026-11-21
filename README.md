@@ -167,19 +167,22 @@ The `tools/` directory contains Python scripts that automate all preparation ste
 cd tools/
 
 # Pack one or more ROM programs → chip files (auto-aligned to 128 KB banks)
+# Accepts .bin / .rom / .img and Steem .STC (4-byte header stripped automatically)
 python3 rom_pack.py game.bin --out build/
-python3 rom_pack.py p1.bin p2.bin p3.bin --out build/
+python3 rom_pack.py game.rom cart.stc --out build/
+
+# Filenames with spaces must be quoted — use python3 directly (make SRCS= cannot handle spaces)
+python3 rom_pack.py "ST Test v4.4.img" etoscart.img BUGBCRT2.STC --out build/
 
 # Validate before burning — scans .bin/.stc/.rom/.img, checks size, magic, GEMDOS header
-# Steem .STC files (131076 B) are detected and the 4-byte header stripped automatically
 python3 rom_validate.py build/
 python3 rom_validate.py build/ --detail   # per-bank table + GEMDOS detail
 
-# Display bank map and chip signatures
+# Display bank map and chip signatures (use rom_info for correct per-bank magic on chip files)
 python3 rom_info.py build/chip_u1_lo.bin build/chip_u2_hi.bin
 ```
 
-Or use the Makefile:
+Or use the Makefile (filenames without spaces only):
 
 ```bash
 make pack SRCS="game.bin" OUTDIR=build/
