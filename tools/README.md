@@ -219,11 +219,14 @@ Skontroluje súbory v adresári (alebo priamo zadané súbory) a overí každý 
 sade kritérií. Výstupom je prehľadová tabuľka so stĺpcami veľkosť, formát,
 kompatibilita čipu, obsadené banky, magic konštanta a celkový stav `PASS / WARN / FAIL`.
 
+Skenovaný adresár: súbory s príponami `.bin`, `.stc`, `.rom`, `.img` (bez ohľadu na veľkosť písmen).
+
 ### Čo sa kontroluje
 
 | Kontrola | Detail |
 |---|---|
 | Veľkosť a zarovnanie | Súbor musí byť násobok 64 KB; musí sa vmestiť do kapacity čipu |
+| Formát STC | Automatické odstrihnutie 4-bajtovej Steem hlavičky (`\x00\x00\x00\x00`) pred 128 KB obrazom |
 | Detekcia formátu | `combined` (16-bit interleaved) / `chip` (lo alebo hi) / `bank` (64 KB výrez) |
 | Kompatibilita čipu | W29C040 (max 1 MB) / TC57H1000 (max 256 KB) / oba / žiadny |
 | Obsah bankov | Počet obsadených bankov, percento naplnenia (≠ 0xFF) |
@@ -231,12 +234,27 @@ kompatibilita čipu, obsadené banky, magic konštanta a celkový stav `PASS / W
 | GEMDOS hlavička | Ak magic = `0x601A`: parsuje TLEN/DLEN/BLEN/SLEN/ABSFLAG, hlási chyby |
 | Per-bank SHA-1 | Kontrolný súčet každého banku pre identifikáciu obsahu |
 
+### Steem STC formát
+
+Steem emulátor ukladá cartridge ROM súbory s 4-bajtovou nulovou hlavičkou pred 128 KB obrazom:
+
+```
+offset 0x000000–0x000003:  00 00 00 00   (Steem hlavička)
+offset 0x000004–0x020003:  <128 KB ROM obraz>
+```
+
+Skript automaticky rozpozná tento formát (veľkosť 131 076 B, prvé 4 bajty nulové) a
+hlavičku odstraní pred analýzou. Výsledná veľkosť, magic a banky sa počítajú zo samotného
+ROM obsahu. Riadok výstupu obsahuje poznámku `STC: 4-bajtová hlavička odstránená`.
+
 ### Magické konštanty
 
 Skript klasifikuje prvé 16-bit slovo kombinovaného obrazu (adresa `$FA0000`):
 
 | Hodnota | Popis | Stav |
 |---|---|---|
+| `0xFA52` | Atari ST cartridge magic — TOS scanuje cartridge port na `FA52 235F` alebo `FA52 235A` | OK |
+| `0xABCD` | `LINE-A #$BCD` — vstupný bod niektorých cartridge programov (napr. Steem STC súbory) | OK |
 | `0x601A` | GEMDOS exec magic — TOS tento program automaticky spustí | OK |
 | `0x601C` | GEMDOS exec (variant) | OK |
 | `0x4EF9` | `JMP abs.l` — priamy ROM kód | OK |
@@ -251,6 +269,8 @@ Skript klasifikuje prvé 16-bit slovo kombinovaného obrazu (adresa `$FA0000`):
 | `0x4AFC` | `ILLEGAL` — zakázaná inštrukcia | FAIL |
 | `0xFFFF` | Nevymazaná flash (erase stav) | FAIL |
 | `0x0000` | Nulovaná pamäť | FAIL |
+
+Pre magic `0xFA52` skript overí aj druhé slovo a upresní popis: `Atari ST cart magic (FA52/235F)` alebo `Atari ST cart magic (FA52/235A)`.
 
 ### Stavy výsledku
 
@@ -280,22 +300,29 @@ python3 rom_validate.py out/ --chip tc57h1000
 
 | Parameter | Default | Popis |
 |---|---|---|
-| `SÚBOR_ALEBO_ADRESÁR` | (povinné) | Jeden alebo viac súborov, alebo adresár s `.bin` súbormi |
+| `SÚBOR_ALEBO_ADRESÁR` | (povinné) | Jeden alebo viac súborov (`.bin/.stc/.rom/.img`), alebo adresár na skenovanie |
 | `--chip` | — | Filtrovať výsledky pre daný čip (`w29c040` / `tc57h1000`) |
 | `--detail` | — | Vypísať per-bank tabuľku a GEMDOS detail pre combined obrazy |
 
 ### Príklad výstupu
 
 ```
-  Súbor                Veľkosť   Formát           Čip        Banky    Obsah    Magic     Popis magic                   Stav
-  ───────────────────  ────────  ───────────────  ─────────  ───────  ───────  ────────  ────────────────────────────  ─────
-  combined.bin         1 MB      combined(W29)    Winbond    2/8      3.1%     0x601A    GEMDOS exec (TOS autoboot)    WARN
-                       obsadené 2/8 bankov
-  chip_u1_lo.bin       512 KB    chip(W29)        Winbond    8/8      99.6%    —         — (chip súbor)                PASS
-  empty.bin            128 KB    combined(TC5)…   oba        0/1      0%       0xFFFF    Flash erased (0xFF fill)      FAIL
-                       súbor je prázdny (všetky bajty = 0xFF)
+╔══ rom_validate ════════════════════════════════════════════
+║  Adresár: out
+║  Súborov: 7
+╚═══════════════════════════════════════════════════════════
 
-  Súhrn: 3 súborov  │  1 PASS  │  1 WARN  │  1 FAIL
+  Súbor              Veľkosť   Formát                          Čip           Banky      Obsah    Magic     Popis magic                            Stav
+  ─────────────────  ────────  ──────────────────────────────  ────────────  ─────────  ───────  ────────  ────────────────────────────────────  ─────
+  BUGBCRT2.STC       128 KB    combined(TC5) / combined(W29)   oba           1/1        96.9%    0xABCD    LINE-A #0xBCD (cartridge entry)        PASS
+  DiagROMCart.rom    128 KB    combined(TC5) / combined(W29)   oba           1/1        96.7%    0xFA52    Atari ST cart magic (FA52/235F)        PASS
+  JOUMPCRT.STC       128 KB    combined(TC5) / combined(W29)   oba           1/1        87.0%    0xABCD    LINE-A #0xBCD (cartridge entry)        PASS
+  MXCRT.STC          128 KB    combined(TC5) / combined(W29)   oba           1/1        86.8%    0xABCD    LINE-A #0xBCD (cartridge entry)        PASS
+  ST Test v4.4.img   64 KB     chip(TC5) / chip(W29)           oba           1/1        91.4%    —         — (chip súbor: magic je rozdelený m…   PASS
+  STE Test v1.9.img  64 KB     chip(TC5) / chip(W29)           oba           1/1        91.9%    —         — (chip súbor: magic je rozdelený m…   PASS
+  etoscart.img       128 KB    combined(TC5) / combined(W29)   oba           1/1        98.0%    0xFA52    Atari ST cart magic (FA52/235F)        PASS
+
+  Súhrn: 7 súborov  │  7 PASS  │  0 WARN  │  0 FAIL
 ```
 
 ---
