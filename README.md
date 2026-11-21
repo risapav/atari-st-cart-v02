@@ -177,10 +177,14 @@ python3 rom_validate.py prg/
 # filenames with spaces handled correctly, Steem .STC headers stripped)
 make pack
 # — or equivalently: python3 rom_pack.py prg/
+# → writes prg/pack_order.txt and out/bank{N}_{original_name} copies
 
 # Display bank map and chip signatures
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 ```
+
+**To reorder banks:** edit `prg/pack_order.txt` (one filename per line) and run `make pack` again.  
+The numbered copies in `out/bank{N}_*` always reflect the current bank assignment.
 
 Or with an explicit file list / different directory:
 
