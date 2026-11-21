@@ -80,10 +80,16 @@ def pack(args):
             print(f"  CHYBA: súbor nenájdený: {p}", file=sys.stderr)
             return 1
 
-        data = p.read_bytes()
+        data = bytearray(p.read_bytes())
         if len(data) == 0:
             print(f"  VAROVANIE: {p.name} je prázdny, preskakujem.")
             continue
+
+        # Steem STC formát: 4-bajtová nulová hlavička pred 128 KB ROM obrazom
+        stc_stripped = False
+        if len(data) == 128 * 1024 + 4 and data[:4] == b'\x00\x00\x00\x00':
+            data = data[4:]
+            stc_stripped = True
 
         padded = align_up(len(data), bank_sz)
         banks_needed = padded // bank_sz
@@ -91,6 +97,8 @@ def pack(args):
 
         label = f"  [{bank}] {p.name}"
         print(f"{label}")
+        if stc_stripped:
+            print(f"       STC:        4-bajtová hlavička odstránená (Steem formát)")
         print(f"       veľkosť:    {fmt_size(len(data))}")
         print(f"       zarovnané:  {fmt_size(padded)}  "
               f"→ {banks_needed} {'bank' if banks_needed == 1 else 'banky/bankov'}"
