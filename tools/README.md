@@ -1,527 +1,528 @@
 # ROM Tools — Atari ST ROM Cartridge v2
 
-Sada Python skriptov na prípravu ROM programov pre fyzické programovanie čipov
-kartridžu `cart_v02`. Skripty riešia zarovnanie na hranice bankov, zreťazenie
-viacerých programov a rozdelenie výsledného obrazu na LO (U1) a HI (U2) chip súbory.
+A set of Python scripts for preparing ROM programs for physical chip programming of the
+`cart_v02` cartridge. The scripts handle bank-boundary alignment, concatenation of multiple
+programs, and splitting the resulting image into LO (U1) and HI (U2) chip files.
 
 ---
 
-## Súbory
+## Files
 
-| Súbor | Popis |
+| File | Description |
 |---|---|
-| `chips.py` | Definície čipov a spoločné funkcie (importované ostatnými skriptmi) |
-| `rom_pack.py` | Zabaľ a zreťaz ROM programy → chip súbory |
-| `rom_split.py` | Rozdeľ existujúci kombinovaný 16-bit obraz → LO + HI |
-| `rom_info.py` | Zobraz štatistiky a mapu bankov chip súborov |
-| `rom_validate.py` | Validuj ROM súbory — veľkosť, magic, obsah, GEMDOS hlavička |
-| `Makefile` | Skratky pre bežné operácie |
+| `chips.py` | Chip definitions and shared functions (imported by other scripts) |
+| `rom_pack.py` | Pack and concatenate ROM programs → chip files |
+| `rom_split.py` | Split an existing combined 16-bit image → LO + HI |
+| `rom_info.py` | Display statistics and bank map of chip files |
+| `rom_validate.py` | Validate ROM files — size, magic, content, GEMDOS header |
+| `Makefile` | Shortcuts for common operations |
 
 ---
 
-## Podporované čipy
+## Supported chips
 
 ### Winbond W29C040-90B (`--chip w29c040`, default)
 
-| Parameter | Hodnota |
+| Parameter | Value |
 |---|---|
-| Kapacita na čip | 512 KB (8-bit) |
-| Počet bankov | 8 |
-| Kombinovaný obraz | 1 MB |
-| Bank veľkosť | 128 KB (kombinovaný) / 64 KB (na čip) |
+| Capacity per chip | 512 KB (8-bit) |
+| Number of banks | 8 |
+| Combined image | 1 MB |
+| Bank size | 128 KB (combined) / 64 KB (per chip) |
 
-Oba čipy (U1 + U2) sa programujú **oddelene** (vybrať zo socketu).
+Both chips (U1 + U2) are programmed **separately** (remove from socket).
 
 ### Toshiba TC57H1000AD-85 (`--chip tc57h1000`)
 
-| Parameter | Hodnota |
+| Parameter | Value |
 |---|---|
-| Kapacita na čip | 128 KB (8-bit), A0–A16 |
-| Počet bankov | **2** (len A16 je efektívny) |
-| Kombinovaný obraz | 256 KB |
-| Bank veľkosť | 128 KB (kombinovaný) / 64 KB (na čip) |
+| Capacity per chip | 128 KB (8-bit), A0–A16 |
+| Number of banks | **2** (only A16 is effective) |
+| Combined image | 256 KB |
+| Bank size | 128 KB (combined) / 64 KB (per chip) |
 
-> **POZOR — TC57H1000AD-85:**
-> - **SW1-3 musí ostať OPEN** — pin 1 je `VPP` (+5 V cez R3); zatvorenie na GND môže zničiť čip.
-> - **SW1-2 je irelevantný** — pin 30 je NC (not connected).
-> - Dostupné sú **len 2 banky** (iba SW1-1 / A16 je aktívny bank select).
+> **WARNING — TC57H1000AD-85:**
+> - **SW1-3 must remain OPEN** — pin 1 is `VPP` (+5 V via R3); closing to GND may destroy the chip.
+> - **SW1-2 is irrelevant** — pin 30 is NC (not connected).
+> - Only **2 banks** are available (only SW1-1 / A16 is an active bank select).
 
 ---
 
-## Formát súborov
+## File formats
 
-### Kombinovaný 16-bit obraz (`combined.bin`)
+### Combined 16-bit image (`combined.bin`)
 
-Štandardný Motorola 68000 big-endian binárny obraz. Každé 16-bitové slovo
-je uložené na párnej adrese s high byteom ako prvým:
+Standard Motorola 68000 big-endian binary image. Each 16-bit word is stored at an even
+address with the high byte first:
 
 ```
-offset 0x000000: high byte slova na ST $FA0000  → U2 (D8–D15)
-offset 0x000001: low  byte slova na ST $FA0000  → U1 (D0–D7)
-offset 0x000002: high byte slova na ST $FA0002  → U2
-offset 0x000003: low  byte slova na ST $FA0002  → U1
+offset 0x000000: high byte of word at ST $FA0000  → U2 (D8–D15)
+offset 0x000001: low  byte of word at ST $FA0000  → U1 (D0–D7)
+offset 0x000002: high byte of word at ST $FA0002  → U2
+offset 0x000003: low  byte of word at ST $FA0002  → U1
 ...
 ```
 
-### Chip súbory (LO / HI)
+### Chip files (LO / HI)
 
-Každý čip dostane **de-interleaved** bajty z kombinovaného obrazu:
+Each chip receives **de-interleaved** bytes from the combined image:
 
-| Súbor | Čip | Obsah | Byte strobe |
+| File | Chip | Content | Byte strobe |
 |---|---|---|---|
-| `chip_u1_lo.bin` | U1 | nepárne bajty (D0–D7) | /LDS |
-| `chip_u2_hi.bin` | U2 | párne bajty (D8–D15) | /UDS |
+| `chip_u1_lo.bin` | U1 | odd bytes (D0–D7) | /LDS |
+| `chip_u2_hi.bin` | U2 | even bytes (D8–D15) | /UDS |
 
 ```
-chip_u1_lo[n] = combined[2n + 1]   (low byte každého slova)
-chip_u2_hi[n] = combined[2n + 0]   (high byte každého slova)
+chip_u1_lo[n] = combined[2n + 1]   (low byte of each word)
+chip_u2_hi[n] = combined[2n + 0]   (high byte of each word)
 ```
 
-### Per-bank súbory
+### Per-bank files
 
-Každý bank je 64 KB na čip (= 128 KB kombinovaných). Súbory `bankN_lo.bin`
-a `bankN_hi.bin` sú výrezy chip súborov pre priame programovanie jedného banku.
+Each bank is 64 KB per chip (= 128 KB combined). Files `bankN_lo.bin` and `bankN_hi.bin`
+are slices of the chip files for direct programming of a single bank.
 
 ---
 
-## rom_pack.py — zabaľ ROM programy
+## rom_pack.py — pack ROM programs
 
-Načíta jeden alebo viac ROM programov, zarovná každý na hranicu 128 KB banku,
-zreťazí ich za sebou a vygeneruje chip súbory.
+Reads one or more ROM programs, aligns each to a 128 KB bank boundary, concatenates them,
+and generates chip files.
 
-Podporované vstupné formáty: `.bin`, `.rom`, `.img` — a `.stc` (Steem formát):
-4-bajtová nulová hlavička je automaticky odstrihnutá pred zarovnaním.
+Supported input formats: `.bin`, `.rom`, `.img` — and `.stc` (Steem format):
+the 4-byte null header is automatically stripped before alignment.
 
-### Zarovnanie na bank
+### Bank alignment
 
-Každý program sa zaokrúhli **nahor** na násobok 128 KB (bank veľkosť):
+Each program is rounded **up** to the nearest multiple of 128 KB (bank size):
 
 ```
-program 48 KB   → zarovná sa na 128 KB  (1 bank)
-program 128 KB  → zostane 128 KB        (1 bank)
-program 192 KB  → zarovná sa na 256 KB  (2 banky)
-program 300 KB  → zarovná sa na 384 KB  (3 banky)
+program  48 KB  → aligned to 128 KB  (1 bank)
+program 128 KB  → stays   128 KB     (1 bank)
+program 192 KB  → aligned to 256 KB  (2 banks)
+program 300 KB  → aligned to 384 KB  (3 banks)
 ```
 
-Medzera medzi koncom programu a hranicou banku sa vyplní hodnotou `--pad` (default `0xFF`).
+The gap between the end of the program and the bank boundary is filled with the `--pad` value
+(default `0xFF`).
 
-### Zreťazenie
+### Concatenation
 
-Programy sa zaraďujú do bankov v poradí, v akom sú zadané na príkazovom riadku.
-Bank 0 = prvý program, nasledujúci program začína v prvom voľnom banku za ním.
+Programs are assigned to banks in the order they are given on the command line.
+Bank 0 = first program; the next program starts at the first free bank after it.
 
-### Príklady
+### Examples
 
 ```bash
-# Odporúčaný spôsob — zabaľ všetky ROM z adresára prg/ (predvolené)
+# Recommended — pack all ROMs from the prg/ directory (default)
 python3 rom_pack.py prg/
-make pack                        # ekvivalent cez Makefile
+make pack                        # equivalent via Makefile
 
-# Iný zdrojový adresár alebo iný typ čipu
+# Different source directory or chip type
 python3 rom_pack.py myroms/ --chip tc57h1000 --out build/
 make pack PRGDIR=myroms/ CHIP=tc57h1000 OUTDIR=build/
 
-# Explicitné súbory (bez medzier v názvoch)
+# Explicit file list (no spaces in filenames)
 python3 rom_pack.py game1.bin game2.bin game3.bin --out build/
 make pack SRCS="game1.bin game2.bin" OUTDIR=build/
 
-# Zobraziť rozloženie bez zápisu súborov
+# Show layout without writing files
 python3 rom_pack.py prg/ --dry-run
 make dry-run
 
-# Uložiť aj kombinovaný 16-bit obraz
+# Also save the combined 16-bit image
 python3 rom_pack.py prg/ --save-combined
 make pack-combined
 
-# Vlastný pad bajt (namiesto 0xFF)
+# Custom pad byte (instead of 0xFF)
 python3 rom_pack.py prg/ --pad 0x00
 ```
 
-> **Medzery v názvoch súborov:** `make pack SRCS="..."` nedokáže správne spracovať
-> názvy s medzerami. Odporúčaný postup je vložiť súbory do `prg/` a volať
-> `make pack` alebo `python3 rom_pack.py prg/` — cesta adresára medzery neobsahuje.
+> **Spaces in filenames:** `make pack SRCS="..."` cannot handle filenames with spaces.
+> The recommended approach is to place files into `prg/` and call `make pack` or
+> `python3 rom_pack.py prg/` — the directory path itself contains no spaces.
 
-### Parametre
+### Parameters
 
-| Parameter | Default | Popis |
+| Parameter | Default | Description |
 |---|---|---|
-| `ROMs / adresár` | (povinné) | Vstupné ROM súbory alebo adresár na skenovanie |
-| `--chip` | `w29c040` | Typ čipu: `w29c040` alebo `tc57h1000` |
-| `--out` | `out/` | Výstupný adresár |
-| `--pad` | `0xFF` | Výplňový bajt pre zarovnanie |
-| `--save-combined` | — | Uložiť aj `combined.bin` |
-| `--dry-run` | — | Len vypočítaj rozloženie, nič nezapisuj |
-| `--force` | — | Pokračuj aj pri prekročení kapacity (oreže dáta) |
+| `ROMs / directory` | (required) | Input ROM files or directory to scan |
+| `--chip` | `w29c040` | Chip type: `w29c040` or `tc57h1000` |
+| `--out` | `out/` | Output directory |
+| `--pad` | `0xFF` | Fill byte for alignment padding |
+| `--save-combined` | — | Also save `combined.bin` |
+| `--dry-run` | — | Calculate layout only, write nothing |
+| `--force` | — | Continue even if programs exceed chip capacity (truncates data) |
 
-### Výstupy
+### Outputs
 
 ```
 out/
-├── chip_u1_lo.bin           — plný obraz U1 (512 KB pre W29C040, 128 KB pre TC57H1000)
-├── chip_u2_hi.bin           — plný obraz U2
-├── bank0_lo.bin             — 64 KB bank 0 pre U1
-├── bank0_hi.bin             — 64 KB bank 0 pre U2
-├── bank1_lo.bin             — 64 KB bank 1 pre U1
+├── chip_u1_lo.bin           — full U1 image (512 KB for W29C040, 128 KB for TC57H1000)
+├── chip_u2_hi.bin           — full U2 image
+├── bank0_lo.bin             — 64 KB bank 0 for U1
+├── bank0_hi.bin             — 64 KB bank 0 for U2
+├── bank1_lo.bin             — 64 KB bank 1 for U1
 ├── bank1_hi.bin             — ...
-├── bank0_BUGBCRT2.STC       — (len pri vstupe adresárom) kópia zdroja pre bank 0
-├── bank1_DiagROMCart.rom    — kópia zdroja pre bank 1
+├── bank0_BUGBCRT2.STC       — (directory input only) source copy for bank 0
+├── bank1_DiagROMCart.rom    — source copy for bank 1
 ├── ...
-└── combined.bin             — (iba s --save-combined) kombinovaný 16-bit obraz
+└── combined.bin             — (only with --save-combined) combined 16-bit image
 ```
 
-Číslované kópie zdrojových súborov (`bank{N}_{original_name}`) sa vytvárajú len
-pri vstupe adresárom. Každá kópia zodpovedá ROM obrazu, ktorý obsadil daný bank —
-uľahčuje identifikáciu obsahu bez spúšťania `rom_info.py`.
+Numbered source copies (`bank{N}_{original_name}`) are created only when the input is a
+directory. Each copy corresponds to the ROM image that occupies that bank — makes it easy
+to identify content without running `rom_info.py`.
 
-### pack_order.txt — kontrola poradia bankov
+### pack_order.txt — controlling bank assignment order
 
-Pri vstupe adresárom skript automaticky spravuje súbor `prg/pack_order.txt`:
+When the input is a directory, the script automatically manages `prg/pack_order.txt`:
 
-**Prvý beh** (súbor neexistuje):
-- súbory sa zoradia abecedne (case-insensitive)
-- po úspešnom balení sa vytvorí `prg/pack_order.txt` s menami v tomto poradí
+**First run** (file does not exist):
+- files are sorted alphabetically (case-insensitive)
+- after a successful pack, `prg/pack_order.txt` is written with filenames in that order
 
-**Ďalšie behy** (súbor existuje):
-- súbory sa zoradia podľa `pack_order.txt`
-- nové súbory chýbajúce v súbore sa pridajú abecedne na koniec
-- súbory v `pack_order.txt`, ktoré už neexistujú, sa ticho preskočia
-- `pack_order.txt` sa aktualizuje s aktuálnym poradím
+**Subsequent runs** (file exists):
+- files are ordered according to `pack_order.txt`
+- new files missing from the file are appended alphabetically at the end
+- files listed in `pack_order.txt` that no longer exist are silently skipped
+- `pack_order.txt` is updated with the current order
 
-**Zmena poradia bankov:**
-1. Uprav `prg/pack_order.txt` ručne — preusporiadaj riadky podľa potreby
-2. Spusti `make pack` — skript spracuje súbory v novom poradí
-3. `out/bank{N}_{original_name}` kópie odrazia nové priradenie bankov
+**Changing bank assignment:**
+1. Edit `prg/pack_order.txt` manually — rearrange lines as needed
+2. Run `make pack` — files are processed in the new order
+3. `out/bank{N}_{original_name}` copies reflect the new bank assignments
 
 ```
-prg/pack_order.txt (príklad):
-  # ROM pack order — uprav poradie, potom znovu spusti make pack
-  # Jedno meno súboru na riadok. Riadky začínajúce # sú komentáre.
+prg/pack_order.txt (example):
+  # ROM pack order — edit order, then run make pack again
+  # One filename per line. Lines starting with # are comments.
 
-  etoscart.img        ← bank 0 (presunutý na prvé miesto)
+  etoscart.img        ← bank 0 (moved to first position)
   DiagROMCart.rom     ← bank 1
   JOUMPCRT.STC        ← bank 2
   ...
-  BUGBCRT2.STC        ← bank 7 (presunutý na koniec)
+  BUGBCRT2.STC        ← bank 7 (moved to last position)
 ```
 
 ---
 
-## rom_split.py — rozdeľ kombinovaný obraz
+## rom_split.py — split a combined image
 
-Ak máš existujúci kombinovaný 16-bit ROM obraz (napr. z iného zdroja), tento
-skript ho de-interleave-uje na chip súbory.
+If you have an existing combined 16-bit ROM image (e.g. from another source), this script
+de-interleaves it into chip files.
 
-### Príklady
+### Examples
 
 ```bash
-# Základné rozdelenie
+# Basic split
 python3 rom_split.py combined.bin
 
-# TC57H1000, vlastný adresár
+# TC57H1000, custom output directory
 python3 rom_split.py combined.bin --chip tc57h1000 --out build/
 
-# Uložiť aj per-bank 64 KB súbory + vypísať mapu bankov
+# Also save per-bank 64 KB files + print bank map
 python3 rom_split.py combined.bin --banks --map
 
-# Len zobraziť info, nič nezapisovať
+# Display info only, write nothing
 python3 rom_split.py combined.bin --info
 ```
 
-### Parametre
+### Parameters
 
-| Parameter | Default | Popis |
+| Parameter | Default | Description |
 |---|---|---|
-| `COMBINED_BIN` | (povinné) | Vstupný kombinovaný 16-bit obraz |
-| `--chip` | `w29c040` | Typ čipu |
-| `--out` | `out/` | Výstupný adresár |
-| `--banks` | — | Uložiť aj per-bank 64 KB súbory |
-| `--map` | — | Vypísať mapu bankov po rozdelení |
-| `--info` | — | Len zobraziť info, nič nezapisovať |
+| `COMBINED_BIN` | (required) | Input combined 16-bit image |
+| `--chip` | `w29c040` | Chip type |
+| `--out` | `out/` | Output directory |
+| `--banks` | — | Also save per-bank 64 KB files |
+| `--map` | — | Print bank map after splitting |
+| `--info` | — | Display info only, write nothing |
 
 ---
 
-## rom_info.py — info o chip súboroch
+## rom_info.py — chip file info
 
-Zobrazí štatistiky, mapu bankov a podpisy (prvé slovo každého banku) pre rýchlu
-vizuálnu kontrolu chip súborov pred programovaním.
+Displays statistics, bank map, and signatures (first word of each bank) for a quick visual
+check of chip files before programming.
 
-### Príklady
+### Examples
 
 ```bash
-# Chip súbory LO + HI
+# LO + HI chip files
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 
-# Kombinovaný obraz
+# Combined image
 python3 rom_info.py --combined combined.bin
 
 # TC57H1000
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin --chip tc57h1000
 
-# Jeden bank (pre bank 2)
+# Single bank (bank 2)
 python3 rom_info.py out/bank2_lo.bin out/bank2_hi.bin --bank 2
 ```
 
 ---
 
-## rom_validate.py — validácia ROM obrazov
+## rom_validate.py — ROM image validation
 
-Skontroluje súbory v adresári (alebo priamo zadané súbory) a overí každý voči
-sade kritérií. Výstupom je prehľadová tabuľka so stĺpcami veľkosť, formát,
-kompatibilita čipu, obsadené banky, magic konštanta a celkový stav `PASS / WARN / FAIL`.
+Checks files in a directory (or directly specified files) and verifies each against a set
+of criteria. Output is a summary table with columns: size, format, chip compatibility,
+occupied banks, magic constant, and overall status `PASS / WARN / FAIL`.
 
-Skenovaný adresár: súbory s príponami `.bin`, `.stc`, `.rom`, `.img` (bez ohľadu na veľkosť písmen).
+Directory scan: files with extensions `.bin`, `.stc`, `.rom`, `.img` (case-insensitive).
 
-### Čo sa kontroluje
+### What is checked
 
-| Kontrola | Detail |
+| Check | Detail |
 |---|---|
-| Veľkosť a zarovnanie | Súbor musí byť násobok 64 KB; musí sa vmestiť do kapacity čipu |
-| Formát STC | Automatické odstrihnutie 4-bajtovej Steem hlavičky (`\x00\x00\x00\x00`) pred 128 KB obrazom |
-| Detekcia formátu | `combined` (16-bit interleaved) / `chip` (lo alebo hi) / `bank` (64 KB výrez) |
-| Kompatibilita čipu | W29C040 (max 1 MB) / TC57H1000 (max 256 KB) / oba / žiadny |
-| Obsah bankov | Počet obsadených bankov, percento naplnenia (≠ 0xFF) |
-| Magic konštanta | Prvé 16-bit slovo na $FA0000; klasifikovaný voči 25+ hodnotám |
-| GEMDOS hlavička | Ak magic = `0x601A`: parsuje TLEN/DLEN/BLEN/SLEN/ABSFLAG, hlási chyby |
-| Per-bank SHA-1 | Kontrolný súčet každého banku pre identifikáciu obsahu |
+| Size and alignment | File must be a multiple of 64 KB; must fit within chip capacity |
+| STC format | Automatic stripping of the 4-byte Steem header (`\x00\x00\x00\x00`) before 128 KB image |
+| Format detection | `combined` (16-bit interleaved) / `chip` (lo or hi) / `bank` (64 KB slice) |
+| Chip compatibility | W29C040 (max 1 MB) / TC57H1000 (max 256 KB) / both / none |
+| Bank content | Number of occupied banks, fill percentage (≠ 0xFF) |
+| Magic constant | First 16-bit word at $FA0000; classified against 25+ known values |
+| GEMDOS header | If magic = `0x601A`: parses TLEN/DLEN/BLEN/SLEN/ABSFLAG, reports errors |
+| Per-bank SHA-1 | Checksum of each bank for content identification |
 
-### Steem STC formát
+### Steem STC format
 
-Steem emulátor ukladá cartridge ROM súbory s 4-bajtovou nulovou hlavičkou pred 128 KB obrazom:
+The Steem emulator stores cartridge ROM files with a 4-byte null prefix before the 128 KB image:
 
 ```
-offset 0x000000–0x000003:  00 00 00 00   (Steem hlavička)
-offset 0x000004–0x020003:  <128 KB ROM obraz>
+offset 0x000000–0x000003:  00 00 00 00   (Steem header)
+offset 0x000004–0x020003:  <128 KB ROM image>
 ```
 
-Skript automaticky rozpozná tento formát (veľkosť 131 076 B, prvé 4 bajty nulové) a
-hlavičku odstraní pred analýzou. Výsledná veľkosť, magic a banky sa počítajú zo samotného
-ROM obsahu. Riadok výstupu obsahuje poznámku `STC: 4-bajtová hlavička odstránená`.
+The script automatically detects this format (size 131 076 B, first 4 bytes zero) and strips
+the header before analysis. The resulting size, magic, and bank count are computed from the
+ROM content itself. The output line includes a note `STC: 4-byte header stripped`.
 
-### Magické konštanty
+### Magic constants
 
-Skript klasifikuje prvé 16-bit slovo kombinovaného obrazu (adresa `$FA0000`):
+The script classifies the first 16-bit word of the combined image (address `$FA0000`):
 
-| Hodnota | Popis | Stav |
+| Value | Description | Status |
 |---|---|---|
-| `0xFA52` | Atari ST cartridge magic — TOS scanuje cartridge port na `FA52 235F` alebo `FA52 235A` | OK |
-| `0xABCD` | `LINE-A #$BCD` — vstupný bod niektorých cartridge programov (napr. Steem STC súbory) | OK |
-| `0x601A` | GEMDOS exec magic — TOS tento program automaticky spustí | OK |
+| `0xFA52` | Atari ST cartridge magic — TOS scans for `FA52 235F` or `FA52 235A` | OK |
+| `0xABCD` | `LINE-A #$BCD` — entry point of some cartridge programs (e.g. Steem STC files) | OK |
+| `0x601A` | GEMDOS exec magic — TOS autoboots this program | OK |
 | `0x601C` | GEMDOS exec (variant) | OK |
-| `0x4EF9` | `JMP abs.l` — priamy ROM kód | OK |
+| `0x4EF9` | `JMP abs.l` — direct ROM code | OK |
 | `0x4EB9` | `JSR abs.l` | OK |
-| `0x6000` | `BRA.W` — vetva s 16-bit offsetom | OK |
-| `0x60xx` (xx ≠ 00, FE) | `BRA.B ±N` — krátkodobá vetva | OK |
-| `0x48E7` | `MOVEM.L regs,-(SP)` — C/ASM prológ | OK |
-| `0x41FA`, `0x43FA` | `LEA d(PC),An` — position-independent kód | OK |
-| `0x4E71` | `NOP` — neobvyklé na začiatku | WARN |
-| `0x4E75` | `RTS` — prvá inštrukcia by nemala byť návrat | WARN |
-| `0x60FE` | `BRA.S *-0` — nekonečná slučka | FAIL |
-| `0x4AFC` | `ILLEGAL` — zakázaná inštrukcia | FAIL |
-| `0xFFFF` | Nevymazaná flash (erase stav) | FAIL |
-| `0x0000` | Nulovaná pamäť | FAIL |
+| `0x6000` | `BRA.W` — branch with 16-bit offset | OK |
+| `0x60xx` (xx ≠ 00, FE) | `BRA.B ±N` — short branch | OK |
+| `0x48E7` | `MOVEM.L regs,-(SP)` — C/ASM prologue | OK |
+| `0x41FA`, `0x43FA` | `LEA d(PC),An` — position-independent code | OK |
+| `0x4E71` | `NOP` — unusual as first instruction | WARN |
+| `0x4E75` | `RTS` — first instruction should not be a return | WARN |
+| `0x60FE` | `BRA.S *-0` — infinite loop | FAIL |
+| `0x4AFC` | `ILLEGAL` — illegal instruction | FAIL |
+| `0xFFFF` | Unerased flash (erase state) | FAIL |
+| `0x0000` | Zeroed memory | FAIL |
 
-Pre magic `0xFA52` skript overí aj druhé slovo a upresní popis: `Atari ST cart magic (FA52/235F)` alebo `Atari ST cart magic (FA52/235A)`.
+For magic `0xFA52` the script also checks the second word and refines the description:
+`Atari ST cart magic (FA52/235F)` or `Atari ST cart magic (FA52/235A)`.
 
-### Stavy výsledku
+### Result status
 
-| Stav | Podmienka |
+| Status | Condition |
 |---|---|
-| `PASS` | Platná veľkosť, neprázdny obsah, platná prvá inštrukcia |
-| `WARN` | Platná veľkosť, ale čiastočne obsadený / neobvyklá magic / chybná GEMDOS hlavička / príliš málo obsahu |
-| `FAIL` | Neplatná veľkosť, prázdny súbor (all-0xFF), škodlivá magic (inf. loop, ILLEGAL) |
+| `PASS` | Valid size, non-empty content, valid first instruction |
+| `WARN` | Valid size, but partially filled / unusual magic / bad GEMDOS header / too little content |
+| `FAIL` | Invalid size, empty file (all-0xFF), harmful magic (infinite loop, ILLEGAL) |
 
-### Príklady
+### Examples
 
 ```bash
-# Validácia celého adresára
+# Validate entire directory
 python3 rom_validate.py out/
 
-# Konkrétne súbory
+# Specific files
 python3 rom_validate.py combined.bin chip_u1_lo.bin chip_u2_hi.bin
 
-# Zobraziť aj per-bank tabuľku a GEMDOS detail
+# Also show per-bank table and GEMDOS detail
 python3 rom_validate.py out/ --detail
 
-# Filtrovanie pre konkrétny čip
+# Filter for a specific chip
 python3 rom_validate.py out/ --chip tc57h1000
 ```
 
-### Parametre
+### Parameters
 
-| Parameter | Default | Popis |
+| Parameter | Default | Description |
 |---|---|---|
-| `SÚBOR_ALEBO_ADRESÁR` | (povinné) | Jeden alebo viac súborov (`.bin/.stc/.rom/.img`), alebo adresár na skenovanie |
-| `--chip` | — | Filtrovať výsledky pre daný čip (`w29c040` / `tc57h1000`) |
-| `--detail` | — | Vypísať per-bank tabuľku a GEMDOS detail pre combined obrazy |
+| `FILE_OR_DIR` | (required) | One or more files (`.bin/.stc/.rom/.img`), or directory to scan |
+| `--chip` | — | Filter results for a given chip (`w29c040` / `tc57h1000`) |
+| `--detail` | — | Print per-bank table and GEMDOS detail for combined images |
 
-### Príklad výstupu
+### Sample output
 
 ```
 ╔══ rom_validate ════════════════════════════════════════════
-║  Adresár: out
-║  Súborov: 7
+║  Directory: out
+║  Files: 7
 ╚═══════════════════════════════════════════════════════════
 
-  Súbor              Veľkosť   Formát                          Čip           Banky      Obsah    Magic     Popis magic                            Stav
+  File               Size      Format                          Chip          Banks      Fill     Magic     Magic description                      Status
   ─────────────────  ────────  ──────────────────────────────  ────────────  ─────────  ───────  ────────  ────────────────────────────────────  ─────
-  BUGBCRT2.STC       128 KB    combined(TC5) / combined(W29)   oba           1/1        96.9%    0xABCD    LINE-A #0xBCD (cartridge entry)        PASS
-  DiagROMCart.rom    128 KB    combined(TC5) / combined(W29)   oba           1/1        96.7%    0xFA52    Atari ST cart magic (FA52/235F)        PASS
-  JOUMPCRT.STC       128 KB    combined(TC5) / combined(W29)   oba           1/1        87.0%    0xABCD    LINE-A #0xBCD (cartridge entry)        PASS
-  MXCRT.STC          128 KB    combined(TC5) / combined(W29)   oba           1/1        86.8%    0xABCD    LINE-A #0xBCD (cartridge entry)        PASS
-  ST Test v4.4.img   64 KB     chip(TC5) / chip(W29)           oba           1/1        91.4%    —         — (chip súbor: magic je rozdelený m…   PASS
-  STE Test v1.9.img  64 KB     chip(TC5) / chip(W29)           oba           1/1        91.9%    —         — (chip súbor: magic je rozdelený m…   PASS
-  etoscart.img       128 KB    combined(TC5) / combined(W29)   oba           1/1        98.0%    0xFA52    Atari ST cart magic (FA52/235F)        PASS
+  BUGBCRT2.STC       128 KB    combined(TC5) / combined(W29)   both          1/1        96.9%    0xABCD    LINE-A #0xBCD (cartridge entry)        PASS
+  DiagROMCart.rom    128 KB    combined(TC5) / combined(W29)   both          1/1        96.7%    0xFA52    Atari ST cart magic (FA52/235F)        PASS
+  JOUMPCRT.STC       128 KB    combined(TC5) / combined(W29)   both          1/1        87.0%    0xABCD    LINE-A #0xBCD (cartridge entry)        PASS
+  MXCRT.STC          128 KB    combined(TC5) / combined(W29)   both          1/1        86.8%    0xABCD    LINE-A #0xBCD (cartridge entry)        PASS
+  ST Test v4.4.img   64 KB     chip(TC5) / chip(W29)           both          1/1        91.4%    —         — (chip file: magic is split acro…     PASS
+  STE Test v1.9.img  64 KB     chip(TC5) / chip(W29)           both          1/1        91.9%    —         — (chip file: magic is split acro…     PASS
+  etoscart.img       128 KB    combined(TC5) / combined(W29)   both          1/1        98.0%    0xFA52    Atari ST cart magic (FA52/235F)        PASS
 
-  Súhrn: 7 súborov  │  7 PASS  │  0 WARN  │  0 FAIL
+  Summary: 7 files  │  7 PASS  │  0 WARN  │  0 FAIL
 ```
 
 ---
 
 ## Makefile
 
-Skratky pre bežné workflow:
+Shortcuts for common workflows:
 
 ```bash
-# Zabaľ ROM z prg/ (predvolene) — odporúčaný spôsob
+# Pack ROMs from prg/ (default) — recommended
 make pack
 
-# Iný zdrojový adresár alebo typ čipu
+# Different source directory or chip type
 make pack PRGDIR=myroms/ CHIP=tc57h1000 OUTDIR=build/
 
-# Explicitný zoznam súborov (bez medzier v názvoch)
+# Explicit file list (no spaces in filenames)
 make pack SRCS="game.bin"
 make pack SRCS="p1.bin p2.bin" CHIP=w29c040
 
-# Náhľad rozloženia bez zápisu
+# Preview layout without writing
 make dry-run
 
-# Zabaľ + uloži kombinovaný obraz
+# Pack + save combined image
 make pack-combined
 
-# Rozdeľ existujúci combined.bin
+# Split an existing combined.bin
 make split SRC=combined.bin
 
-# Zobraz info o chip súboroch
+# Display chip file info
 make info
 
-# Validácia (prehľadová tabuľka)
+# Validate (summary table)
 make validate
 make validate VALDIR=build/ CHIP=tc57h1000
 
-# Validácia s per-bank detailom a GEMDOS výpisom
+# Validate with per-bank detail and GEMDOS output
 make validate-detail
 
-# Zmaž výstupný adresár
+# Delete output directory
 make clean
 ```
 
-Premenné Makefile:
+Makefile variables:
 
-| Premenná | Default | Popis |
+| Variable | Default | Description |
 |---|---|---|
-| `CHIP` | `w29c040` | Typ čipu |
-| `PRGDIR` | `prg/` | Zdrojový adresár pre `pack` (ak nie je nastavené `SRCS`) |
-| `OUTDIR` | `out/` | Výstupný adresár (pre `pack`, `split`, `info`) |
-| `VALDIR` | `out/` | Adresár na validáciu (pre `validate`) |
-| `SRCS` | — | Explicitné vstupné súbory (pre `pack`; bez medzier v názvoch) |
-| `SRC` | — | Jeden vstupný súbor (pre `split`) |
-| `PAD` | `0xFF` | Výplňový bajt |
+| `CHIP` | `w29c040` | Chip type |
+| `PRGDIR` | `prg/` | Source directory for `pack` (if `SRCS` is not set) |
+| `OUTDIR` | `out/` | Output directory (for `pack`, `split`, `info`) |
+| `VALDIR` | `out/` | Directory to validate (for `validate`) |
+| `SRCS` | — | Explicit input files (for `pack`; no spaces in filenames) |
+| `SRC` | — | Single input file (for `split`) |
+| `PAD` | `0xFF` | Fill byte |
 
 ---
 
-## Typický workflow
+## Typical workflow
 
-### W29C040 — plné nasadenie (1 MB, 8 bankov)
+### W29C040 — full deployment (1 MB, 8 banks)
 
-Všetky zdrojové súbory ulož do `prg/`. Skript automaticky skenuje adresár, spracuje
-súbory s medzerami v názvoch a odstraňuje STC hlavičky — žiadne citácie ani explicitné
-zoznamy súborov nie sú potrebné.
+Place all source files into `prg/`. The script automatically scans the directory, handles
+filenames with spaces, and strips STC headers — no quoting or explicit file lists needed.
 
 ```bash
-# 1. Validácia zdrojov
+# 1. Validate sources
 make validate VALDIR=prg/
 
-# 2. Príprava chip súborov (skenuje prg/ automaticky)
+# 2. Prepare chip files (scans prg/ automatically)
 make pack
 
-# 3. Kontrola obsahu (mapa bankov, podpisy)
+# 3. Check content (bank map, signatures)
 make info
 
-# 4. Programovanie čipov (externým programátorom)
+# 4. Program chips (with external programmer)
 #    U1 ← out/chip_u1_lo.bin
 #    U2 ← out/chip_u2_hi.bin
 
-# 5. Nastavenie DIP switch SW1
+# 5. Set DIP switch SW1
 #    Bank 0: SW1-1=0, SW1-2=0, SW1-3=0
 #    Bank 1: SW1-1=1, SW1-2=0, SW1-3=0
 #    ...
 ```
 
-### W29C040 — mix reálnych cartridge ROM-ov (prg/ adresár)
+### W29C040 — mix of real cartridge ROMs (prg/ directory)
 
-Príklad s reálnymi súbormi (vrátane názvov s medzerami a STC formátu):
+Example with real files (including filenames with spaces and STC format):
 
 ```bash
-# 0. Validácia zdrojov (prg/ adresár)
+# 0. Validate sources (prg/ directory)
 python3 rom_validate.py prg/
 
-# 1. Zabalenie — skenuje prg/, banky sa priradia abecedne (1. beh)
+# 1. Pack — scans prg/, banks assigned alphabetically (first run)
 make pack
-#    — alebo priamo: python3 rom_pack.py prg/
-#    → vytvorí prg/pack_order.txt + out/bank{N}_{original_name} kópie
+#    — or directly: python3 rom_pack.py prg/
+#    → creates prg/pack_order.txt + out/bank{N}_{original_name} copies
 
-# 2. Voliteľne: uprav poradie bankov ručne
-#    Edituj prg/pack_order.txt, preusporiadaj riadky, spusti make pack znova.
-#    out/bank{N}_{original_name} odrazia nové priradenie bankov.
+# 2. Optional: change bank order manually
+#    Edit prg/pack_order.txt, reorder lines, run make pack again.
+#    out/bank{N}_{original_name} will reflect the new bank assignments.
 
-# 3. Kontrola výsledného chip obrazu (mapa bankov, magic podpisy)
+# 3. Check resulting chip image (bank map, magic signatures)
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 
-# 4. Programovanie čipov
+# 4. Program chips
 #    U1 ← out/chip_u1_lo.bin  (512 KB)
 #    U2 ← out/chip_u2_hi.bin  (512 KB)
 
-# 5. Nastavenie DIP switch SW1 podľa požadovaného programu
-#    (poradie = podľa prg/pack_order.txt alebo abecedne pri 1. behu):
-#    Bank 0 (SW1=000): BUGBCRT2.STC
+# 5. Set DIP switch SW1 for the desired program
+#    (order = per prg/pack_order.txt or alphabetical on first run):
+#    Bank 0 (SW1=000): etoscart.img
 #    Bank 1 (SW1=001): DiagROMCart.rom
-#    Bank 2 (SW1=010): JOUMPCRT.STC
-#    Bank 3 (SW1=011): MXCRT.STC
-#    Bank 4 (SW1=100): ST Test v4.4.img
-#    Bank 5 (SW1=101): STE Test v1.9.img
-#    Bank 6 (SW1=110): WBCRT.STC
-#    Bank 7 (SW1=111): etoscart.img
+#    Bank 2 (SW1=010): ST Test v4.4.img
+#    Bank 3 (SW1=011): STE Test v1.9.img
+#    Bank 4 (SW1=100): JOUMPCRT.STC
+#    Bank 5 (SW1=101): MXCRT.STC
+#    Bank 6 (SW1=110): BUGBCRT2.STC
+#    Bank 7 (SW1=111): WBCRT.STC
 ```
 
-### TC57H1000 — 128 KB SRAM, 2 banky
+### TC57H1000 — 128 KB SRAM, 2 banks
 
 ```bash
-# 1. Príprava (max 256 KB, 2 banky)
+# 1. Prepare (max 256 KB, 2 banks)
 make pack PRGDIR=prg/ CHIP=tc57h1000 OUTDIR=build/
 
-# 2. Validácia (zobrazí varovania pre SW1-3 / SW1-2)
+# 2. Validate (shows warnings for SW1-3 / SW1-2)
 make validate CHIP=tc57h1000 VALDIR=build/
 
-# 3. Kontrola + varovania pre SW1
+# 3. Check + SW1 warnings
 make info CHIP=tc57h1000 OUTDIR=build/
 
-# 4. Programovanie U1 ← build/chip_u1_lo.bin, U2 ← build/chip_u2_hi.bin
-# 5. SW1-3 musí ostať OPEN (VPP); SW1-1 vyberá bank 0 alebo 1
+# 4. Program U1 ← build/chip_u1_lo.bin, U2 ← build/chip_u2_hi.bin
+# 5. SW1-3 must remain OPEN (VPP); SW1-1 selects bank 0 or 1
 ```
 
 ---
 
-## Poznámky k programovaniu W29C040-90B
+## W29C040-90B programming notes
 
-- Programuje sa **mimo obvodu** (vytiahnuť zo socketu DIP-32).
-- Čip podporuje Software Data Protection (SDP) — ak je zapnutá, treba ju pred
-  programovaním deaktivovať príkazom povolenia zápisu (závisí od programátora).
-- Mazaný (erase) stav bajtu = `0xFF`.
-- Programátor nastaviť na typ `W29C040` alebo kompatibilný `29C040`.
+- Programmed **out of circuit** (remove from DIP-32 socket).
+- The chip supports Software Data Protection (SDP) — if enabled, disable it before
+  programming with the write-enable command sequence (depends on the programmer).
+- Erased (blank) byte state = `0xFF`.
+- Set programmer to type `W29C040` or compatible `29C040`.
 
-## Poznámky k TC57H1000AD-85
+## TC57H1000AD-85 notes
 
-- **Nikdy nezatvoriť SW1-3** — pin 1 je `VPP`, pull-up R3 zabezpečuje +5 V.
-  Zatvorenie prepne VPP na GND a môže trvalo poškodiť čip.
-- Programuje sa ako štandardná 128 KB SRAM alebo `TC57H1000`.
-- Obsah sa stratí po výpadku napájania (je to SRAM, nie flash).
+- **Never close SW1-3** — pin 1 is `VPP`, pull-up R3 provides +5 V.
+  Closing the switch pulls VPP to GND and may permanently damage the chip.
+- Programmed as a standard 128 KB SRAM or `TC57H1000`.
+- Content is lost when power is removed (this is SRAM, not flash).
