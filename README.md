@@ -137,7 +137,7 @@ cart_v02/
 │   ├── rom_pack.py         — pack & align multiple ROMs → chip files
 │   ├── rom_split.py        — split combined 16-bit image → LO + HI
 │   ├── rom_info.py         — display bank map and chip statistics
-│   ├── rom_validate.py     — validate ROM files (size, magic, content)
+│   ├── rom_validate.py     — validate ROM files (.bin/.stc/.rom/.img): size, magic, STC strip
 │   ├── Makefile            — shortcuts: pack / split / info / validate
 │   └── README.md           — full tool documentation
 ├── doc/
@@ -169,7 +169,8 @@ cd tools/
 python3 rom_pack.py game.bin --out build/
 python3 rom_pack.py p1.bin p2.bin p3.bin --out build/
 
-# Validate before burning — checks size, magic constants, GEMDOS header
+# Validate before burning — scans .bin/.stc/.rom/.img, checks size, magic, GEMDOS header
+# Steem .STC files (131076 B) are detected and the 4-byte header stripped automatically
 python3 rom_validate.py build/
 python3 rom_validate.py build/ --detail   # per-bank table + GEMDOS detail
 
