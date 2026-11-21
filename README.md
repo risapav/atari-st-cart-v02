@@ -141,7 +141,8 @@ cart_v02/
 │   ├── Makefile            — shortcuts: pack / split / info / validate
 │   └── README.md           — full tool documentation
 ├── doc/
-│   └── functional_analysis.md   — address decoding, CE logic, memory map
+│   ├── functional_analysis.md    — address decoding, CE logic, ROM formats (EN)
+│   └── functional_analysis_sk.md — address decoding, CE logic, ROM formats (SK)
 └── test/                   — virtual cartridge simulation (Python)
     ├── cartridge_model.py  — hardware model of the cartridge bus
     ├── generate_test_roms.py

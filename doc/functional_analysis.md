@@ -1,7 +1,7 @@
 # Functional Analysis — Atari ST ROM Cartridge v2
 
-**Project:** cart_v02 · Rev 1.0 · 2026-11-08 · risapav  
-**Analysis date:** 2026-11-19 (updated after U1/U2 reference swap)
+**Project:** cart_v02 · Rev 1.1 · 2026-11-08 · risapav  
+**Analysis date:** 2026-11-21 (updated: TOS cartridge recognition, ROM image file formats)
 
 ---
 
@@ -202,8 +202,8 @@ The 68000 places the high byte (MSB) at an even address. /UDS asserts for even-a
 
 | File | Chip | Contains | Byte selection |
 |---|---|---|---|
-| `rom_hi.bin` | U2 (D8–D15) | even bytes of ROM image (0, 2, 4, …) | /UDS — upper byte |
-| `rom_lo.bin` | U1 (D0–D7) | odd bytes of ROM image (1, 3, 5, …) | /LDS — lower byte |
+| `chip_u2_hi.bin` | U2 (D8–D15) | even bytes of ROM image (0, 2, 4, …) | /UDS — upper byte |
+| `chip_u1_lo.bin` | U1 (D0–D7) | odd bytes of ROM image (1, 3, 5, …) | /LDS — lower byte |
 
 For a banked image, lay each bank consecutively: bank 0 at offset `0x000000`, bank 1 at `0x010000`, …, bank 7 at `0x070000`. Each bank occupies 64 KB (0x10000 bytes) in each file.
 
@@ -235,7 +235,82 @@ Total accessible: 2 × 64 KB = **128 KB** per chip, **256 KB** combined.
 
 ---
 
-## Checklist — Rev 1.0 (corrected)
+## TOS Cartridge ROM Recognition
+
+TOS scans address `$FA0000` at every cold and warm reset and looks for specific magic values.
+The cartridge hardware makes this content visible via the /ROM3 + /ROM4 chip-enable logic described above.
+
+### Standard cartridge header
+
+TOS probes the first two 16-bit words at `$FA0000`:
+
+| Address | Value | Meaning |
+|---|---|---|
+| `$FA0000` | `0xFA52` | Cartridge magic — first word |
+| `$FA0002` | `0x235F` | Cartridge magic — second word (TOS 1.x) |
+| `$FA0002` | `0x235A` | Cartridge magic — second word (TOS 2.x and later) |
+
+When both words match, TOS vectors to `$FA0004` and executes the cartridge program. This header is the most compatible format for real hardware.
+
+### LINE-A entry point
+
+Some cartridge programs start directly with a LINE-A opcode:
+
+| Address | Value | Meaning |
+|---|---|---|
+| `$FA0000` | `0xABCD` | `LINE-A #$BCD` opcode — alternative cartridge entry |
+
+This format is used by older cartridge software, including Steem emulator `.STC` files. TOS can call `$FA0000` directly if no GEMDOS program is detected.
+
+### GEMDOS autoboot
+
+If TOS finds a valid GEMDOS executable header at `$FA0000` (magic `0x601A`, which is a `BRA.S +26` skipping the 28-byte header), it loads and runs it via the standard program loader, the same way it runs programs from disk.
+
+---
+
+## ROM Image File Formats
+
+### Combined 16-bit image
+
+The combined image is a standard big-endian 68000 byte stream, identical to what appears on the data bus. Each 16-bit word occupies two consecutive bytes: even offset = high byte (D8–D15, U2), odd offset = low byte (D0–D7, U1).
+
+```
+offset 0x000000: D15–D8  → U2  (high byte at ST $FA0000)
+offset 0x000001: D7–D0   → U1  (low  byte at ST $FA0000)
+offset 0x000002: D15–D8  → U2  (high byte at ST $FA0002)
+offset 0x000003: D7–D0   → U1  (low  byte at ST $FA0002)
+...
+```
+
+Sizes: 128 KB (TC57H1000, 1 bank), 512 KB (W29C040, 4 banks), or 1 MB (W29C040, 8 banks).
+
+### Steem STC format
+
+The Steem emulator wraps cartridge ROM images with a 4-byte null prefix before the standard 128 KB combined image:
+
+```
+bytes 0x000000–0x000003:  00 00 00 00   (Steem header — not part of the ROM)
+bytes 0x000004–0x020003:  <128 KB combined ROM image>
+```
+
+Total file size: **131 076 bytes** (128 × 1024 + 4).  
+The ROM image at offset 4 is a standard combined 16-bit image; the magic value at offset 4 (`$FA0000` equivalent) is typically `0xABCD`.  
+`rom_validate.py` automatically detects this format (size = 131 076 B, first 4 bytes = `00 00 00 00`) and strips the header before analysis.
+
+### Chip files (LO / HI)
+
+Each chip receives de-interleaved bytes from the combined image:
+
+| File | Chip | Derivation | Pin |
+|---|---|---|---|
+| `chip_u1_lo.bin` | U1 (D0–D7) | `combined[2n+1]`  odd bytes | /LDS strobe |
+| `chip_u2_hi.bin` | U2 (D8–D15) | `combined[2n]`  even bytes | /UDS strobe |
+
+For a W29C040 with 8 banks, each chip file is 512 KB. Bank N starts at byte offset `N × 0x10000` in each file.
+
+---
+
+## Checklist — Rev 1.1
 
 | Item | Status |
 |---|---|
