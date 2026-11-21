@@ -12,7 +12,8 @@ Overuje súbory v adresári (alebo priamo zadané súbory) voči:
 Použitie:
   python3 rom_validate.py out/                     # skenuj adresár
   python3 rom_validate.py combined.bin             # jeden súbor
-  python3 rom_validate.py out/*.bin                # wildcard
+  python3 rom_validate.py game.stc game.rom        # rôzne prípony
+  python3 rom_validate.py out/*.bin out/*.stc      # wildcard
   python3 rom_validate.py out/ --detail            # aj per-bank tabuľky
   python3 rom_validate.py out/ --chip tc57h1000    # pre TC57H1000
 """
@@ -474,23 +475,40 @@ def print_summary(results: list[FileResult]):
 # Vyhľadávanie súborov
 # ---------------------------------------------------------------------------
 
+ROM_EXTENSIONS = {".bin", ".stc", ".rom", ".img"}
+
+
 def collect_paths(inputs: list[str]) -> list[Path]:
+    import glob as _glob
     paths: list[Path] = []
+    seen: set[Path] = set()
+
+    def add(p: Path):
+        rp = p.resolve()
+        if rp not in seen:
+            seen.add(rp)
+            paths.append(p)
+
     for s in inputs:
         p = Path(s)
         if p.is_dir():
-            found = sorted(p.glob("*.bin"))
+            found: list[Path] = []
+            for ext in sorted(ROM_EXTENSIONS):
+                found.extend(p.glob(f"*{ext}"))
+            found = sorted(set(found))
             if not found:
-                print(f"  Adresár {p} neobsahuje žiadne .bin súbory.")
-            paths.extend(found)
+                exts = " / ".join(sorted(ROM_EXTENSIONS))
+                print(f"  Adresár {p} neobsahuje žiadne súbory ({exts}).")
+            for f in found:
+                add(f)
         elif p.exists():
-            paths.append(p)
+            add(p)
         else:
-            # Môže ísť o glob expanziu shellu ktorú Python nedostal (ak bol v úvodzovkách)
-            import glob
-            expanded = sorted(glob.glob(s))
+            # Shell glob, ak bol vzor v úvodzovkách
+            expanded = sorted(_glob.glob(s))
             if expanded:
-                paths.extend(Path(e) for e in expanded)
+                for e in expanded:
+                    add(Path(e))
             else:
                 print(f"  VAROVANIE: {s} nenájdený, preskakujem.")
     return paths
@@ -513,7 +531,7 @@ Príklady:
         """,
     )
     p.add_argument("inputs", nargs="+", metavar="SÚBOR_ALEBO_ADRESÁR",
-                   help="Súbor(y) .bin alebo adresár na skenovanie")
+                   help="Súbor(y) (.bin/.stc/.rom/.img) alebo adresár na skenovanie")
     p.add_argument("--detail", action="store_true",
                    help="Vypísať per-bank tabuľku a GEMDOS detail pre každý combined obraz")
     p.add_argument("--chip", default=None, metavar="TYP",
