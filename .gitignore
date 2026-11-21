@@ -29,3 +29,4 @@ Thumbs.db
 # Generated ROM binary files
 test/roms/
 tools/out/
+tools/prg/
