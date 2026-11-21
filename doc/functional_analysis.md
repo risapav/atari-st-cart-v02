@@ -316,6 +316,36 @@ When validating chip files (`chip_u1_lo.bin`, `chip_u2_hi.bin`) with `rom_valida
 - Use `rom_info.py` on the chip file pair to see the correct per-bank magic values reconstructed from U1+U2 together.
 - Empty per-bank files (`bankN_lo/hi.bin`) for unused banks will correctly show `FAIL` (all bytes = 0xFF). This is expected when fewer than the maximum number of banks are populated.
 
+### Recommended programming workflow
+
+Place all source ROM images (`.bin`, `.rom`, `.img`, `.stc`) into the `tools/prg/` directory. The tools use this as the default source location.
+
+```bash
+cd tools/
+
+# 1. Validate source images
+python3 rom_validate.py prg/
+
+# 2. Pack all images from prg/ into chip files (default: W29C040, out/)
+make pack
+#    — or with explicit directory / chip type:
+#    make pack PRGDIR=prg/ CHIP=w29c040 OUTDIR=out/
+
+# 3. Inspect bank map and magic signatures
+python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
+
+# 4. Program the chips (out-of-circuit)
+#    U1 ← out/chip_u1_lo.bin  (512 KB for W29C040)
+#    U2 ← out/chip_u2_hi.bin  (512 KB for W29C040)
+
+# 5. Set SW1 to the desired bank and insert into the cartridge
+```
+
+`rom_pack.py` accepts a directory as its input argument and scans it for all ROM files
+(`.bin` / `.rom` / `.img` / `.stc`, case-insensitive, sorted alphabetically).
+Files with spaces in their names are handled correctly when calling `python3 rom_pack.py`
+directly — they do not need quoting in the shell since the directory path itself has no spaces.
+
 ---
 
 ## Checklist — Rev 1.1

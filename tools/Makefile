@@ -27,6 +27,7 @@ PAD     ?= 0xFF
 SRCS    ?=
 SRC     ?=
 VALDIR  ?= out
+PRGDIR  ?= prg
 DETAIL  ?=
 
 PACK_SCRIPT     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))rom_pack.py
@@ -59,44 +60,51 @@ help:
 	@echo "    OUTDIR=$(OUTDIR)"
 	@echo "    SRCS=$(if $(SRCS),$(SRCS),(neuvedené — použiť: make pack SRCS='a.bin b.bin'))"
 	@echo "    SRC=$(if $(SRC),$(SRC),(neuvedené — použiť: make split SRC=combined.bin))"
+	@echo "    PRGDIR=$(PRGDIR)  (pre make pack bez SRCS — skenuje adresár)"
 	@echo "    VALDIR=$(VALDIR)  (pre make validate)"
 	@echo "    PAD=$(PAD)"
 	@echo ""
 
 # -----------------------------------------------------------------------------
-# pack — zabaľ SRCS do chip súborov
+# pack — zabaľ ROM súbory do chip súborov
+#   Bez SRCS: skenuje PRGDIR (default: prg/) — odporúčaný spôsob
+#   S SRCS:   explicitný zoznam súborov (bez medzier v názvoch)
 # -----------------------------------------------------------------------------
-check-srcs:
-	@if [ -z "$(SRCS)" ]; then \
-		echo "CHYBA: premenná SRCS je prázdna."; \
-		echo "Príklad: make pack SRCS='game.bin'"; \
+_PACK_INPUT = $(if $(SRCS),$(SRCS),$(PRGDIR))
+
+check-pack-input:
+	@if [ -z "$(SRCS)" ] && [ ! -d "$(PRGDIR)" ]; then \
+		echo "CHYBA: adresár $(PRGDIR) neexistuje a SRCS je prázdna."; \
+		echo "Príklad: make pack             — skenuje $(PRGDIR)/"; \
+		echo "         make pack PRGDIR=dir/ — skenuje iný adresár"; \
+		echo "         make pack SRCS='a.bin b.bin'"; \
 		exit 1; \
 	fi
 
-pack: check-srcs
+pack: check-pack-input
 	$(PYTHON) $(PACK_SCRIPT) \
 		--chip $(CHIP) \
 		--out  $(OUTDIR) \
 		--pad  $(PAD) \
-		$(SRCS)
+		$(_PACK_INPUT)
 
 # To isté s uložením kombinovaného obrazu
-pack-combined: check-srcs
+pack-combined: check-pack-input
 	$(PYTHON) $(PACK_SCRIPT) \
 		--chip $(CHIP) \
 		--out  $(OUTDIR) \
 		--pad  $(PAD) \
 		--save-combined \
-		$(SRCS)
+		$(_PACK_INPUT)
 
 # Náhľad bez zápisu
-dry-run: check-srcs
+dry-run: check-pack-input
 	$(PYTHON) $(PACK_SCRIPT) \
 		--chip $(CHIP) \
 		--out  $(OUTDIR) \
 		--pad  $(PAD) \
 		--dry-run \
-		$(SRCS)
+		$(_PACK_INPUT)
 
 # -----------------------------------------------------------------------------
 # split — rozdeľ existujúci kombinovaný obraz

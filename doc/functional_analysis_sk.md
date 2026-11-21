@@ -315,6 +315,36 @@ Pri validácii chip súborov (`chip_u1_lo.bin`, `chip_u2_hi.bin`) cez `rom_valid
 - Pre správne magické hodnoty bankov rekonštruované z U1+U2 použiť `rom_info.py` s dvojicou chip súborov.
 - Prázdne per-bank súbory (`bankN_lo/hi.bin`) pre neobsadené banky budú správne zobrazovať `FAIL` (všetky bajty = 0xFF). Toto je očakávané správanie pri menšom počte naplnených bankov.
 
+### Odporúčaný postup programovania
+
+Všetky zdrojové ROM obrazy (`.bin`, `.rom`, `.img`, `.stc`) umiestni do adresára `tools/prg/`. Nástroje tento adresár používajú ako predvolené miesto pre zdrojové súbory.
+
+```bash
+cd tools/
+
+# 1. Validácia zdrojových obrazov
+python3 rom_validate.py prg/
+
+# 2. Zabalenie všetkých obrazov z prg/ do chip súborov (predvolene: W29C040, out/)
+make pack
+#    — alebo s explicitným adresárom / typom čipu:
+#    make pack PRGDIR=prg/ CHIP=w29c040 OUTDIR=out/
+
+# 3. Kontrola mapy bankov a magic podpisov
+python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
+
+# 4. Programovanie čipov (mimo obvodu)
+#    U1 ← out/chip_u1_lo.bin  (512 KB pre W29C040)
+#    U2 ← out/chip_u2_hi.bin  (512 KB pre W29C040)
+
+# 5. Nastavenie SW1 na požadovaný bank a vloženie do cartridge
+```
+
+`rom_pack.py` prijíma adresár ako vstupný argument a skenuje ho na všetky ROM súbory
+(`.bin` / `.rom` / `.img` / `.stc`, bez ohľadu na veľkosť písmen, zoradené abecedne).
+Súbory s medzerami v názvoch sú spracované správne pri volaní `python3 rom_pack.py`
+priamo — keďže samotná cesta adresára medzery neobsahuje, citácie nie sú potrebné.
+
 ---
 
 ## Kontrolný zoznam — Rev 1.1

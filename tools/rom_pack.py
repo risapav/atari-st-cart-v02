@@ -47,6 +47,41 @@ def is_empty(data: bytes | bytearray, fill: int = 0xFF) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Vyhľadávanie vstupných súborov
+# ---------------------------------------------------------------------------
+
+ROM_EXTENSIONS = {".bin", ".stc", ".rom", ".img"}
+
+
+def collect_inputs(inputs: list[str]) -> list[Path] | None:
+    """Expanduje adresáre na zoradené zoznamy ROM súborov. Vracia None pri chybe."""
+    paths: list[Path] = []
+    seen: set[Path] = set()
+
+    for s in inputs:
+        p = Path(s)
+        if p.is_dir():
+            found = sorted(f for f in p.iterdir()
+                           if f.is_file() and f.suffix.lower() in ROM_EXTENSIONS)
+            if not found:
+                exts = " / ".join(sorted(ROM_EXTENSIONS))
+                print(f"  VAROVANIE: adresár {p} neobsahuje žiadne súbory ({exts}).")
+            for f in found:
+                if f.resolve() not in seen:
+                    seen.add(f.resolve())
+                    paths.append(f)
+        elif p.exists():
+            if p.resolve() not in seen:
+                seen.add(p.resolve())
+                paths.append(p)
+        else:
+            print(f"  CHYBA: súbor nenájdený: {p}", file=sys.stderr)
+            return None
+
+    return paths
+
+
+# ---------------------------------------------------------------------------
 # Hlavná logika balenia
 # ---------------------------------------------------------------------------
 
@@ -57,6 +92,13 @@ def pack(args):
     bank_sz = chip["bank_combined"]
     num_banks = chip["num_banks"]
     pad_byte = args.pad & 0xFF
+
+    input_paths = collect_inputs(args.inputs)
+    if input_paths is None:
+        return 1
+    if not input_paths:
+        print("  CHYBA: žiadne vstupné súbory.", file=sys.stderr)
+        return 1
 
     print(f"╔══ rom_pack ════════════════════════════════════════════════")
     print(f"║  Čip:      {chip['name']}")
@@ -74,8 +116,7 @@ def pack(args):
     bank = 0
 
     # --- Spracovanie vstupných súborov ---
-    for path_str in args.inputs:
-        p = Path(path_str)
+    for p in input_paths:
         if not p.exists():
             print(f"  CHYBA: súbor nenájdený: {p}", file=sys.stderr)
             return 1

@@ -113,40 +113,39 @@ Bank 0 = prvý program, nasledujúci program začína v prvom voľnom banku za n
 ### Príklady
 
 ```bash
-# Jeden program, default W29C040, výstup do out/
-python3 rom_pack.py mygame.bin
+# Odporúčaný spôsob — zabaľ všetky ROM z adresára prg/ (predvolené)
+python3 rom_pack.py prg/
+make pack                        # ekvivalent cez Makefile
 
-# Viac programov s explicitným čipom a adresárom
-python3 rom_pack.py game1.bin game2.bin game3.bin --chip w29c040 --out build/
+# Iný zdrojový adresár alebo iný typ čipu
+python3 rom_pack.py myroms/ --chip tc57h1000 --out build/
+make pack PRGDIR=myroms/ CHIP=tc57h1000 OUTDIR=build/
 
-# Mix formátov (.img, .rom, .stc) — STC hlavička sa odstraňuje automaticky
-python3 rom_pack.py etoscart.img DiagROMCart.rom BUGBCRT2.STC JOUMPCRT.STC
-
-# Názvy súborov s medzerami — Makefile ich nepodporuje, volaj python3 priamo
-python3 rom_pack.py "ST Test v4.4.img" "STE Test v1.9.img" etoscart.img
-
-# TC57H1000 (max 256 KB, 2 banky)
-python3 rom_pack.py rom.bin --chip tc57h1000 --out build/
+# Explicitné súbory (bez medzier v názvoch)
+python3 rom_pack.py game1.bin game2.bin game3.bin --out build/
+make pack SRCS="game1.bin game2.bin" OUTDIR=build/
 
 # Zobraziť rozloženie bez zápisu súborov
-python3 rom_pack.py p1.bin p2.bin --dry-run
+python3 rom_pack.py prg/ --dry-run
+make dry-run
 
 # Uložiť aj kombinovaný 16-bit obraz
-python3 rom_pack.py rom.bin --save-combined
+python3 rom_pack.py prg/ --save-combined
+make pack-combined
 
 # Vlastný pad bajt (namiesto 0xFF)
-python3 rom_pack.py rom.bin --pad 0x00
+python3 rom_pack.py prg/ --pad 0x00
 ```
 
-> **Makefile a medzery v názvoch:** `make pack SRCS="..."` nedokáže správne spracovať
-> názvy súborov s medzerami (Makefile ich interpretuje ako oddeľovač). Pre takéto súbory
-> volaj `python3 rom_pack.py` priamo s citáciami.
+> **Medzery v názvoch súborov:** `make pack SRCS="..."` nedokáže správne spracovať
+> názvy s medzerami. Odporúčaný postup je vložiť súbory do `prg/` a volať
+> `make pack` alebo `python3 rom_pack.py prg/` — cesta adresára medzery neobsahuje.
 
 ### Parametre
 
 | Parameter | Default | Popis |
 |---|---|---|
-| `ROMs` | (povinné) | Vstupné ROM súbory (jeden alebo viac) |
+| `ROMs / adresár` | (povinné) | Vstupné ROM súbory alebo adresár na skenovanie |
 | `--chip` | `w29c040` | Typ čipu: `w29c040` alebo `tc57h1000` |
 | `--out` | `out/` | Výstupný adresár |
 | `--pad` | `0xFF` | Výplňový bajt pre zarovnanie |
@@ -345,18 +344,21 @@ python3 rom_validate.py out/ --chip tc57h1000
 Skratky pre bežné workflow:
 
 ```bash
-# Zabaľ ROM programy (SRCS = zoznam súborov)
+# Zabaľ ROM z prg/ (predvolene) — odporúčaný spôsob
+make pack
+
+# Iný zdrojový adresár alebo typ čipu
+make pack PRGDIR=myroms/ CHIP=tc57h1000 OUTDIR=build/
+
+# Explicitný zoznam súborov (bez medzier v názvoch)
 make pack SRCS="game.bin"
 make pack SRCS="p1.bin p2.bin" CHIP=w29c040
 
-# TC57H1000
-make pack SRCS="rom.bin" CHIP=tc57h1000 OUTDIR=build/
-
 # Náhľad rozloženia bez zápisu
-make dry-run SRCS="p1.bin p2.bin"
+make dry-run
 
 # Zabaľ + uloži kombinovaný obraz
-make pack-combined SRCS="rom.bin"
+make pack-combined
 
 # Rozdeľ existujúci combined.bin
 make split SRC=combined.bin
@@ -380,9 +382,10 @@ Premenné Makefile:
 | Premenná | Default | Popis |
 |---|---|---|
 | `CHIP` | `w29c040` | Typ čipu |
+| `PRGDIR` | `prg/` | Zdrojový adresár pre `pack` (ak nie je nastavené `SRCS`) |
 | `OUTDIR` | `out/` | Výstupný adresár (pre `pack`, `split`, `info`) |
 | `VALDIR` | `out/` | Adresár na validáciu (pre `validate`) |
-| `SRCS` | — | Vstupné súbory (pre `pack`) |
+| `SRCS` | — | Explicitné vstupné súbory (pre `pack`; bez medzier v názvoch) |
 | `SRC` | — | Jeden vstupný súbor (pre `split`) |
 | `PAD` | `0xFF` | Výplňový bajt |
 
@@ -392,20 +395,23 @@ Premenné Makefile:
 
 ### W29C040 — plné nasadenie (1 MB, 8 bankov)
 
-```bash
-# 1. Príprava chip súborov
-make pack SRCS="game1.bin game2.bin" OUTDIR=build/
+Všetky zdrojové súbory ulož do `prg/`. Skript automaticky skenuje adresár, spracuje
+súbory s medzerami v názvoch a odstraňuje STC hlavičky — žiadne citácie ani explicitné
+zoznamy súborov nie sú potrebné.
 
-# 2. Validácia pred programovaním
-make validate VALDIR=build/
-make validate-detail VALDIR=build/   # s per-bank detailom
+```bash
+# 1. Validácia zdrojov
+make validate VALDIR=prg/
+
+# 2. Príprava chip súborov (skenuje prg/ automaticky)
+make pack
 
 # 3. Kontrola obsahu (mapa bankov, podpisy)
-make info OUTDIR=build/
+make info
 
 # 4. Programovanie čipov (externým programátorom)
-#    U1 ← build/chip_u1_lo.bin
-#    U2 ← build/chip_u2_hi.bin
+#    U1 ← out/chip_u1_lo.bin
+#    U2 ← out/chip_u2_hi.bin
 
 # 5. Nastavenie DIP switch SW1
 #    Bank 0: SW1-1=0, SW1-2=0, SW1-3=0
@@ -415,50 +421,40 @@ make info OUTDIR=build/
 
 ### W29C040 — mix reálnych cartridge ROM-ov (prg/ adresár)
 
-Ak máš zdrojové ROM obrazy v adresári `prg/` (`.bin`, `.rom`, `.img`, `.stc`), najprv
-validuj zdroje a potom zabaľ — pre súbory s medzerami v názve použi `python3` priamo:
+Príklad s reálnymi súbormi (vrátane názvov s medzerami a STC formátu):
 
 ```bash
 # 0. Validácia zdrojov (prg/ adresár)
 python3 rom_validate.py prg/
 
-# 1. Zabalenie — 7 programov do 7 bankov W29C040 (bank 7 ostane prázdny)
-python3 rom_pack.py \
-    prg/etoscart.img \
-    "prg/ST Test v4.4.img" \
-    "prg/STE Test v1.9.img" \
-    prg/DiagROMCart.rom \
-    prg/BUGBCRT2.STC \
-    prg/JOUMPCRT.STC \
-    prg/MXCRT.STC
+# 1. Zabalenie — skenuje prg/, banky sa priradia abecedne
+make pack
+#    — alebo priamo: python3 rom_pack.py prg/
 
 # 2. Kontrola výsledného chip obrazu (mapa bankov, magic podpisy)
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 
-# 3. Validácia chip súborov
-#    Poznámka: bank7_lo/hi.bin budú FAIL — sú prázdne (0xFF), čo je správne
-python3 rom_validate.py out/chip_u1_lo.bin out/chip_u2_hi.bin
-
-# 4. Programovanie čipov
+# 3. Programovanie čipov
 #    U1 ← out/chip_u1_lo.bin  (512 KB)
 #    U2 ← out/chip_u2_hi.bin  (512 KB)
 
-# 5. Nastavenie DIP switch SW1 podľa požadovaného programu:
-#    Bank 0 (SW1=000): etoscart
-#    Bank 1 (SW1=001): ST Test v4.4
-#    Bank 2 (SW1=010): STE Test v1.9
-#    Bank 3 (SW1=011): DiagROMCart
-#    Bank 4 (SW1=100): BUGBCRT2
-#    Bank 5 (SW1=101): JOUMPCRT
-#    Bank 6 (SW1=110): MXCRT
-#    Bank 7 (SW1=111): prázdny
+# 4. Nastavenie DIP switch SW1 podľa požadovaného programu
+#    (poradie = abecedné zoradenie súborov v prg/):
+#    Bank 0 (SW1=000): BUGBCRT2.STC
+#    Bank 1 (SW1=001): DiagROMCart.rom
+#    Bank 2 (SW1=010): JOUMPCRT.STC
+#    Bank 3 (SW1=011): MXCRT.STC
+#    Bank 4 (SW1=100): ST Test v4.4.img
+#    Bank 5 (SW1=101): STE Test v1.9.img
+#    Bank 6 (SW1=110): WBCRT.STC
+#    Bank 7 (SW1=111): etoscart.img
 ```
 
 ### TC57H1000 — 128 KB SRAM, 2 banky
 
 ```bash
 # 1. Príprava (max 256 KB, 2 banky)
-make pack SRCS="rom.bin" CHIP=tc57h1000 OUTDIR=build/
+make pack PRGDIR=prg/ CHIP=tc57h1000 OUTDIR=build/
 
 # 2. Validácia (zobrazí varovania pre SW1-3 / SW1-2)
 make validate CHIP=tc57h1000 VALDIR=build/
