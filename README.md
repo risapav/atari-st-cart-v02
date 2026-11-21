@@ -134,12 +134,13 @@ cart_v02/
 │   └── positions.csv
 ├── tools/                  — Python scripts for ROM image preparation
 │   ├── chips.py            — chip definitions (W29C040, TC57H1000)
-│   ├── rom_pack.py         — pack & align multiple ROMs → chip files
+│   ├── rom_pack.py         — pack directory or file list → chip files (STC auto-strip)
 │   ├── rom_split.py        — split combined 16-bit image → LO + HI
 │   ├── rom_info.py         — display bank map and chip statistics
 │   ├── rom_validate.py     — validate ROM files (.bin/.stc/.rom/.img): size, magic, STC strip
-│   ├── Makefile            — shortcuts: pack / split / info / validate
-│   └── README.md           — full tool documentation
+│   ├── Makefile            — shortcuts: pack / split / info / validate (PRGDIR=prg/)
+│   ├── README.md           — full tool documentation
+│   └── prg/                — source ROM images (default input for make pack)
 ├── doc/
 │   ├── functional_analysis.md    — address decoding, CE logic, ROM formats (EN)
 │   └── functional_analysis_sk.md — address decoding, CE logic, ROM formats (SK)
