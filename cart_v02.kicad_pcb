@@ -4749,6 +4749,42 @@
 			(justify left bottom)
 		)
 	)
+	(gr_text "A18"
+		(at 119.2775 79.0925 0)
+		(layer "F.SilkS")
+		(uuid "3a755126-47ce-4945-9653-d45a842d5431")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "A17"
+		(at 123.05 79.1 0)
+		(layer "F.SilkS")
+		(uuid "54f41ea1-1113-42db-9caa-66673eca770e")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "A16"
+		(at 126.45 79.1 0)
+		(layer "F.SilkS")
+		(uuid "6b3a7d03-205e-4671-9840-9698fe035cdb")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
 	(gr_text "LO"
 		(locked yes)
 		(at 110.45 133.7 0)
