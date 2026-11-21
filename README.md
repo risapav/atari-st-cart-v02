@@ -163,31 +163,29 @@ Each chip is 512 K × 8 and must be programmed **out of circuit** (remove from D
 
 The `tools/` directory contains Python scripts that automate all preparation steps:
 
+Place all source ROM images (`.bin`, `.rom`, `.img`, `.stc`) into `tools/prg/`.
+The tools use this directory as the default source location.
+
 ```bash
 cd tools/
 
-# Pack one or more ROM programs → chip files (auto-aligned to 128 KB banks)
-# Accepts .bin / .rom / .img and Steem .STC (4-byte header stripped automatically)
-python3 rom_pack.py game.bin --out build/
-python3 rom_pack.py game.rom cart.stc --out build/
+# Validate source images
+python3 rom_validate.py prg/
 
-# Filenames with spaces must be quoted — use python3 directly (make SRCS= cannot handle spaces)
-python3 rom_pack.py "ST Test v4.4.img" etoscart.img BUGBCRT2.STC --out build/
+# Pack all images from prg/ → chip files  (directory scanned automatically,
+# filenames with spaces handled correctly, Steem .STC headers stripped)
+make pack
+# — or equivalently: python3 rom_pack.py prg/
 
-# Validate before burning — scans .bin/.stc/.rom/.img, checks size, magic, GEMDOS header
-python3 rom_validate.py build/
-python3 rom_validate.py build/ --detail   # per-bank table + GEMDOS detail
-
-# Display bank map and chip signatures (use rom_info for correct per-bank magic on chip files)
-python3 rom_info.py build/chip_u1_lo.bin build/chip_u2_hi.bin
+# Display bank map and chip signatures
+python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 ```
 
-Or use the Makefile (filenames without spaces only):
+Or with an explicit file list / different directory:
 
 ```bash
-make pack SRCS="game.bin" OUTDIR=build/
-make validate VALDIR=build/
-make info OUTDIR=build/
+make pack PRGDIR=myroms/
+make pack SRCS="game.bin other.rom"   # no spaces in filenames
 ```
 
 Manual procedure (without scripts):
