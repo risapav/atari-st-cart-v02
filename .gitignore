@@ -25,3 +25,7 @@ report.txt
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# Generated ROM binary files
+test/roms/
+tools/out/
