@@ -157,13 +157,51 @@ python3 rom_pack.py prg/ --pad 0x00
 
 ```
 out/
-├── chip_u1_lo.bin      — plný obraz U1 (512 KB pre W29C040, 128 KB pre TC57H1000)
-├── chip_u2_hi.bin      — plný obraz U2
-├── bank0_lo.bin        — 64 KB bank 0 pre U1
-├── bank0_hi.bin        — 64 KB bank 0 pre U2
-├── bank1_lo.bin        — 64 KB bank 1 pre U1
-├── bank1_hi.bin        — ...
-└── combined.bin        — (iba s --save-combined) kombinovaný 16-bit obraz
+├── chip_u1_lo.bin           — plný obraz U1 (512 KB pre W29C040, 128 KB pre TC57H1000)
+├── chip_u2_hi.bin           — plný obraz U2
+├── bank0_lo.bin             — 64 KB bank 0 pre U1
+├── bank0_hi.bin             — 64 KB bank 0 pre U2
+├── bank1_lo.bin             — 64 KB bank 1 pre U1
+├── bank1_hi.bin             — ...
+├── bank0_BUGBCRT2.STC       — (len pri vstupe adresárom) kópia zdroja pre bank 0
+├── bank1_DiagROMCart.rom    — kópia zdroja pre bank 1
+├── ...
+└── combined.bin             — (iba s --save-combined) kombinovaný 16-bit obraz
+```
+
+Číslované kópie zdrojových súborov (`bank{N}_{original_name}`) sa vytvárajú len
+pri vstupe adresárom. Každá kópia zodpovedá ROM obrazu, ktorý obsadil daný bank —
+uľahčuje identifikáciu obsahu bez spúšťania `rom_info.py`.
+
+### pack_order.txt — kontrola poradia bankov
+
+Pri vstupe adresárom skript automaticky spravuje súbor `prg/pack_order.txt`:
+
+**Prvý beh** (súbor neexistuje):
+- súbory sa zoradia abecedne (case-insensitive)
+- po úspešnom balení sa vytvorí `prg/pack_order.txt` s menami v tomto poradí
+
+**Ďalšie behy** (súbor existuje):
+- súbory sa zoradia podľa `pack_order.txt`
+- nové súbory chýbajúce v súbore sa pridajú abecedne na koniec
+- súbory v `pack_order.txt`, ktoré už neexistujú, sa ticho preskočia
+- `pack_order.txt` sa aktualizuje s aktuálnym poradím
+
+**Zmena poradia bankov:**
+1. Uprav `prg/pack_order.txt` ručne — preusporiadaj riadky podľa potreby
+2. Spusti `make pack` — skript spracuje súbory v novom poradí
+3. `out/bank{N}_{original_name}` kópie odrazia nové priradenie bankov
+
+```
+prg/pack_order.txt (príklad):
+  # ROM pack order — uprav poradie, potom znovu spusti make pack
+  # Jedno meno súboru na riadok. Riadky začínajúce # sú komentáre.
+
+  etoscart.img        ← bank 0 (presunutý na prvé miesto)
+  DiagROMCart.rom     ← bank 1
+  JOUMPCRT.STC        ← bank 2
+  ...
+  BUGBCRT2.STC        ← bank 7 (presunutý na koniec)
 ```
 
 ---
@@ -427,19 +465,24 @@ Príklad s reálnymi súbormi (vrátane názvov s medzerami a STC formátu):
 # 0. Validácia zdrojov (prg/ adresár)
 python3 rom_validate.py prg/
 
-# 1. Zabalenie — skenuje prg/, banky sa priradia abecedne
+# 1. Zabalenie — skenuje prg/, banky sa priradia abecedne (1. beh)
 make pack
 #    — alebo priamo: python3 rom_pack.py prg/
+#    → vytvorí prg/pack_order.txt + out/bank{N}_{original_name} kópie
 
-# 2. Kontrola výsledného chip obrazu (mapa bankov, magic podpisy)
+# 2. Voliteľne: uprav poradie bankov ručne
+#    Edituj prg/pack_order.txt, preusporiadaj riadky, spusti make pack znova.
+#    out/bank{N}_{original_name} odrazia nové priradenie bankov.
+
+# 3. Kontrola výsledného chip obrazu (mapa bankov, magic podpisy)
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 
-# 3. Programovanie čipov
+# 4. Programovanie čipov
 #    U1 ← out/chip_u1_lo.bin  (512 KB)
 #    U2 ← out/chip_u2_hi.bin  (512 KB)
 
-# 4. Nastavenie DIP switch SW1 podľa požadovaného programu
-#    (poradie = abecedné zoradenie súborov v prg/):
+# 5. Nastavenie DIP switch SW1 podľa požadovaného programu
+#    (poradie = podľa prg/pack_order.txt alebo abecedne pri 1. behu):
 #    Bank 0 (SW1=000): BUGBCRT2.STC
 #    Bank 1 (SW1=001): DiagROMCart.rom
 #    Bank 2 (SW1=010): JOUMPCRT.STC

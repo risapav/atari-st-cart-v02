@@ -346,6 +346,12 @@ python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 Files with spaces in their names are handled correctly when calling `python3 rom_pack.py`
 directly — they do not need quoting in the shell since the directory path itself has no spaces.
 
+After packing, `rom_pack.py` writes `prg/pack_order.txt` listing the source filenames
+in the order they were processed (= bank assignment order). On subsequent runs the file is
+read and applied, so the user can reorder banks by editing `pack_order.txt` before running
+`make pack` again. Numbered source copies (`bank{N}_{original_name}`) are written to `out/`
+for traceability.
+
 ---
 
 ## Checklist — Rev 1.1

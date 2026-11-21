@@ -345,6 +345,12 @@ python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 Súbory s medzerami v názvoch sú spracované správne pri volaní `python3 rom_pack.py`
 priamo — keďže samotná cesta adresára medzery neobsahuje, citácie nie sú potrebné.
 
+Po zabalení `rom_pack.py` zapíše `prg/pack_order.txt` so zoznamom zdrojových súborov
+v poradí, v akom boli spracované (= poradie priradenia bankov). Pri ďalších behoch
+sa súbor načíta a aplikuje, takže používateľ môže zmeniť poradie bankov editáciou
+`pack_order.txt` pred ďalším spustením `make pack`. Do `out/` sa kopírujú číslované
+kópie zdrojov (`bank{N}_{original_name}`) pre jednoduchú identifikáciu obsahu bankov.
+
 ---
 
 ## Kontrolný zoznam — Rev 1.1
