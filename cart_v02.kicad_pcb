@@ -9,7 +9,7 @@
 	(paper "A4")
 	(title_block
 		(title "Atari ST ROM Cartridge v2 — 2× W29C040-90B (16-bit)")
-		(date "2026-11-08")
+		(date "2026-11-23")
 		(rev "1.1")
 		(company "risapav")
 	)
@@ -28,6 +28,39 @@
 		(33 "B.Fab" user)
 	)
 	(setup
+		(stackup
+			(layer "F.SilkS"
+				(type "Top Silk Screen")
+			)
+			(layer "F.Mask"
+				(type "Top Solder Mask")
+				(thickness 0.01)
+			)
+			(layer "F.Cu"
+				(type "copper")
+				(thickness 0.035)
+			)
+			(layer "dielectric 1"
+				(type "core")
+				(thickness 1.51)
+				(material "FR4")
+				(epsilon_r 4.5)
+				(loss_tangent 0.02)
+			)
+			(layer "B.Cu"
+				(type "copper")
+				(thickness 0.035)
+			)
+			(layer "B.Mask"
+				(type "Bottom Solder Mask")
+				(thickness 0.01)
+			)
+			(layer "B.SilkS"
+				(type "Bottom Silk Screen")
+			)
+			(copper_finish "None")
+			(dielectric_constraints no)
+		)
 		(pad_to_mask_clearance 0)
 		(allow_soldermask_bridges_in_footprints no)
 		(tenting
@@ -44,6 +77,7 @@
 		)
 		(capping no)
 		(filling no)
+		(zone_defaults)
 		(grid_origin 117.25 98.5)
 		(pcbplotparams
 			(layerselection 0x00000000_00000000_55555555_575555ff)
@@ -3039,7 +3073,7 @@
 		(descr "4x-dip-switch SPST , Slide, row spacing 7.62 mm (300 mils), body size 9.78x12.34mm (see e.g. https://www.ctscorp.com/wp-content/uploads/206-208.pdf)")
 		(tags "DIP Switch SPST Slide 7.62mm 300mil")
 		(property "Reference" "SW1"
-			(at 3.81 11.38 90)
+			(at 3.81 4.445 180)
 			(layer "F.SilkS")
 			(uuid "2d0c04e8-fa15-4bda-abea-02646a233eff")
 			(effects
@@ -6445,6 +6479,32 @@
 			(font
 				(size 1 1)
 				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "HI"
+		(at 86.45 149.1 0)
+		(layer "F.SilkS")
+		(uuid "b366c2bf-293c-422d-8f8f-0afac60c84ad")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.4)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "LO"
+		(at 105.55 149.1 0)
+		(layer "F.SilkS")
+		(uuid "8a756e1b-6520-46c4-a119-b25f6ac672d6")
+		(effects
+			(font
+				(size 2 2)
+				(thickness 0.4)
+				(bold yes)
 			)
 			(justify left bottom)
 		)
