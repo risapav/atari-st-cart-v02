@@ -2,7 +2,7 @@
 
 Sada Python skriptov na prípravu ROM programov pre fyzické programovanie čipov
 kartridžu `cart_v02`. Skripty riešia zarovnanie na hranice bankov, zreťazenie
-viacerých programov a rozdelenie výsledného obrazu na LO (U1) a HI (U2) chip súbory.
+viacerých programov a rozdelenie výsledného obrazu na LO (U2) a HI (U1) chip súbory.
 
 ---
 
@@ -56,10 +56,10 @@ Oba čipy (U1 + U2) sa programujú **oddelene** (vybrať zo socketu).
 je uložené na párnej adrese s high byteom ako prvým:
 
 ```
-offset 0x000000: high byte slova na ST $FA0000  → U2 (D8–D15)
-offset 0x000001: low  byte slova na ST $FA0000  → U1 (D0–D7)
-offset 0x000002: high byte slova na ST $FA0002  → U2
-offset 0x000003: low  byte slova na ST $FA0002  → U1
+offset 0x000000: high byte slova na ST $FA0000  → U1 (D8–D15)
+offset 0x000001: low  byte slova na ST $FA0000  → U2 (D0–D7)
+offset 0x000002: high byte slova na ST $FA0002  → U1
+offset 0x000003: low  byte slova na ST $FA0002  → U2
 ...
 ```
 
@@ -69,12 +69,12 @@ Každý čip dostane **de-interleaved** bajty z kombinovaného obrazu:
 
 | Súbor | Čip | Obsah | Byte strobe |
 |---|---|---|---|
-| `chip_u1_lo.bin` | U1 | nepárne bajty (D0–D7) | /LDS |
-| `chip_u2_hi.bin` | U2 | párne bajty (D8–D15) | /UDS |
+| `chip_u1_lo.bin` | U2 | nepárne bajty (D0–D7) | /LDS |
+| `chip_u2_hi.bin` | U1 | párne bajty (D8–D15) | /UDS |
 
 ```
-chip_u1_lo[n] = combined[2n + 1]   (low byte každého slova)
-chip_u2_hi[n] = combined[2n + 0]   (high byte každého slova)
+chip_u1_lo[n] = combined[2n + 1]   (low byte každého slova → programuje sa do U2)
+chip_u2_hi[n] = combined[2n + 0]   (high byte každého slova → programuje sa do U1)
 ```
 
 ### Per-bank súbory
@@ -157,11 +157,11 @@ python3 rom_pack.py prg/ --pad 0x00
 
 ```
 out/
-├── chip_u1_lo.bin           — plný obraz U1 (512 KB pre W29C040, 128 KB pre TC57H1000)
-├── chip_u2_hi.bin           — plný obraz U2
-├── bank0_lo.bin             — 64 KB bank 0 pre U1
-├── bank0_hi.bin             — 64 KB bank 0 pre U2
-├── bank1_lo.bin             — 64 KB bank 1 pre U1
+├── chip_u1_lo.bin           — plný obraz U2 (512 KB pre W29C040, 128 KB pre TC57H1000)
+├── chip_u2_hi.bin           — plný obraz U1
+├── bank0_lo.bin             — 64 KB bank 0 pre U2
+├── bank0_hi.bin             — 64 KB bank 0 pre U1
+├── bank1_lo.bin             — 64 KB bank 1 pre U2
 ├── bank1_hi.bin             — ...
 ├── bank0_BUGBCRT2.STC       — (len pri vstupe adresárom) kópia zdroja pre bank 0
 ├── bank1_DiagROMCart.rom    — kópia zdroja pre bank 1
@@ -448,8 +448,8 @@ make pack
 make info
 
 # 4. Programovanie čipov (externým programátorom)
-#    U1 ← out/chip_u1_lo.bin
-#    U2 ← out/chip_u2_hi.bin
+#    U1 ← out/chip_u2_hi.bin  (D8–D15 / horný bajt)
+#    U2 ← out/chip_u1_lo.bin  (D0–D7 / dolný bajt)
 
 # 5. Nastavenie DIP switch SW1
 #    Bank 0: SW1-1=0, SW1-2=0, SW1-3=0
@@ -478,8 +478,8 @@ make pack
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 
 # 4. Programovanie čipov
-#    U1 ← out/chip_u1_lo.bin  (512 KB)
-#    U2 ← out/chip_u2_hi.bin  (512 KB)
+#    U1 ← out/chip_u2_hi.bin  (512 KB, D8–D15 / horný bajt)
+#    U2 ← out/chip_u1_lo.bin  (512 KB, D0–D7 / dolný bajt)
 
 # 5. Nastavenie DIP switch SW1 podľa požadovaného programu
 #    (poradie = podľa prg/pack_order.txt alebo abecedne pri 1. behu):
@@ -505,7 +505,7 @@ make validate CHIP=tc57h1000 VALDIR=build/
 # 3. Kontrola + varovania pre SW1
 make info CHIP=tc57h1000 OUTDIR=build/
 
-# 4. Programovanie U1 ← build/chip_u1_lo.bin, U2 ← build/chip_u2_hi.bin
+# 4. Programovanie U1 ← build/chip_u2_hi.bin, U2 ← build/chip_u1_lo.bin
 # 5. SW1-3 musí ostať OPEN (VPP); SW1-1 vyberá bank 0 alebo 1
 ```
 

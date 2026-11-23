@@ -2,7 +2,7 @@
 """
 rom_info.py — Zobraz informácie o chip súboroch pre Atari ST ROM Cartridge v2.
 
-Prijíma chip súbory (U1 lo a U2 hi) alebo kombinovaný obraz a vypíše:
+Prijíma chip súbory (chip_u1_lo + chip_u2_hi) alebo kombinovaný obraz a vypíše:
   - veľkosť a hash
   - mapu bankov (obsadený / prázdny, prvé a posledné slovo, SHA-1)
   - súhrn prvého slova každého banku (podpis)
@@ -59,7 +59,7 @@ def print_header(chip: dict):
     print()
 
 
-def print_chip_summary(u1: bytearray, u2: bytearray, chip: dict, label_u1="U1 (lo)", label_u2="U2 (hi)"):
+def print_chip_summary(u1: bytearray, u2: bytearray, chip: dict, label_u1="chip_u1_lo (D0–D7/U2)", label_u2="chip_u2_hi (D8–D15/U1)"):
     fill = chip["erase_byte"]
     combined = merge_from_chips(u1, u2)
 
@@ -68,7 +68,7 @@ def print_chip_summary(u1: bytearray, u2: bytearray, chip: dict, label_u1="U1 (l
     print(f"  {'kombinovaný':<20} {fmt_size(len(combined)):<10}  sha1: {sha1_hex(combined)}")
     empty_pct_u1 = fill_ratio(u1, fill)
     empty_pct_u2 = fill_ratio(u2, fill)
-    print(f"  Naplnenosť: U1 {100-empty_pct_u1:.1f}%  │  U2 {100-empty_pct_u2:.1f}%  "
+    print(f"  Naplnenosť: lo/U2 {100-empty_pct_u1:.1f}%  │  hi/U1 {100-empty_pct_u2:.1f}%  "
           f"(0x{fill:02X} = erase stav)")
     print()
 
@@ -162,7 +162,7 @@ def run(args):
         print()
     else:
         if len(args.chip_files) != 2:
-            print("CHYBA: zadaj presne 2 chip súbory (U1_lo a U2_hi) alebo --combined.",
+            print("CHYBA: zadaj presne 2 chip súbory (chip_u1_lo.bin a chip_u2_hi.bin) alebo --combined.",
                   file=sys.stderr)
             return 1
         p1 = Path(args.chip_files[0])

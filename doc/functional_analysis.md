@@ -47,8 +47,9 @@ When a signal goes LOW, current flows from ROM_CE (Anode, pulled HIGH by R4) thr
 - `ST_D0` … `ST_D15` — Atari ST data bus lines
 - `ST_~{ROM3}`, `ST_~{ROM4}` — chip select signals
 - `ST_~{UDS}`, `ST_~{LDS}` — byte strobe signals
-- `B_SW1`, `B_SW2`, `B_SW3` — DIP switch bank select outputs
+- `B_SW1`, `B_SW2`, `B_SW3` — DIP switch bank select outputs (SW1 positions 1–3; position 4 is NC)
 - `ROM_CE` — wired-AND output to both chips' /CE pins
+- `ROM_~{WE}` — /WE net pulled to +5 V via R5 (4.7 kΩ); both chips' /WE (pin 31)
 
 Local labels are sheet-local in KiCad and cannot inadvertently collide with other global nets. ✓
 
@@ -56,9 +57,9 @@ Local labels are sheet-local in KiCad and cannot inadvertently collide with othe
 
 ## Full Connection Verification
 
-### U1 — Low byte chip (D0–D7, /LDS)
+### U1 — High byte chip (D8–D15, /UDS)
 
-U1 placed at schematic position (96.52, 149.86).
+U1 placed at schematic position (165.1, 121.92).
 
 | Chip pin | Signal | Pin name |
 |---|---|---|
@@ -82,21 +83,21 @@ U1 placed at schematic position (96.52, 149.86).
 | Pin 30 (A17) | `B_SW2`  | ✓ |
 | Pin 1 (A18)  | `B_SW3`  | ✓ |
 | Pin 22 (/CE) | `ROM_CE` | ✓ — wired-AND output |
-| Pin 24 (/OE) | `ST_~{LDS}` | ✓ — low byte strobe |
-| Pin 31 (/WE) | +5V (via #PWR09) | ✓ — write protect |
+| Pin 24 (/OE) | `ST_~{UDS}` | ✓ — high byte strobe |
+| Pin 31 (/WE) | `ROM_~{WE}` (R5 4.7 kΩ → +5V) | ✓ — write protect |
 | Pin 32 (VCC) | +5V | ✓ |
 | Pin 16 (GND) | GND | ✓ |
-| Pins 13–21 (D0–D7) | `ST_D0`–`ST_D7` | ✓ |
+| Pins 13–21 (D0–D7) | `ST_D8`–`ST_D15` | ✓ |
 
-### U2 — High byte chip (D8–D15, /UDS)
+### U2 — Low byte chip (D0–D7, /LDS)
 
-U2 placed at schematic position (175.26, 151.13). Same address/control wiring as U1 (verified pin-by-pin), with two differences:
+U2 placed at schematic position (240.03, 121.92). Same address/control wiring as U1 (verified pin-by-pin), with two differences:
 
 | Chip pin | Signal | Note |
 |---|---|---|
-| Pin 24 (/OE) | `ST_~{UDS}` | ✓ — high byte strobe |
-| Pin 31 (/WE) | +5V (via #PWR010) | ✓ |
-| Pins 13–21 (D0–D7) | `ST_D8`–`ST_D15` | ✓ — upper byte |
+| Pin 24 (/OE) | `ST_~{LDS}` | ✓ — low byte strobe |
+| Pin 31 (/WE) | `ROM_~{WE}` (R5 4.7 kΩ → +5V) | ✓ |
+| Pins 13–21 (D0–D7) | `ST_D0`–`ST_D7` | ✓ — lower byte |
 
 ### Chip enable logic
 
@@ -110,13 +111,14 @@ ROM_CE goes LOW when EITHER /ROM3 OR /ROM4 is asserted LOW. The two signals neve
 
 ### SW1 — Bank select
 
-SW1 at (332.74, 86.36). Common (P-side) pins tied to GND. T-side outputs:
+SW1 at (337.82, 95.25). 4-position DIP switch; position 4 (pins 4 and 8) is unconnected (no_connect). Common (P-side) pins tied to GND. T-side outputs:
 
 | SW pin | Net | Chip address bit | Pull-up |
 |---|---|---|---|
 | T1 | `B_SW1` | A16 | R1 (10 kΩ) to +5V |
 | T2 | `B_SW2` | A17 | R2 (10 kΩ) to +5V |
 | T3 | `B_SW3` | A18 | R3 (10 kΩ) to +5V |
+| T4 | — | (NC) | — |
 
 Closed = GND = 0; Open = pulled HIGH = 1. ✓
 
@@ -124,11 +126,11 @@ Closed = GND = 0; Open = pulled HIGH = 1. ✓
 
 Unlike a simple ROM where /OE is tied to GND, this design drives each chip's /OE individually with the byte strobe:
 
-| Access type | /UDS | /LDS | U2 /OE | U1 /OE | Active chips |
+| Access type | /UDS | /LDS | U1 /OE | U2 /OE | Active chips |
 |---|---|---|---|---|---|
 | Word (16-bit) | LOW | LOW | LOW | LOW | both |
-| Upper byte only | LOW | HIGH | LOW | HIGH | U2 only |
-| Lower byte only | HIGH | LOW | HIGH | LOW | U1 only |
+| Upper byte only | LOW | HIGH | LOW | HIGH | U1 only |
+| Lower byte only | HIGH | LOW | HIGH | LOW | U2 only |
 
 This prevents bus contention when only one byte is accessed. For ROM use (read-only), bus contention would not cause damage, but the byte-strobe /OE is cleaner design practice. ✓
 
@@ -202,8 +204,8 @@ The 68000 places the high byte (MSB) at an even address. /UDS asserts for even-a
 
 | File | Chip | Contains | Byte selection |
 |---|---|---|---|
-| `chip_u2_hi.bin` | U2 (D8–D15) | even bytes of ROM image (0, 2, 4, …) | /UDS — upper byte |
-| `chip_u1_lo.bin` | U1 (D0–D7) | odd bytes of ROM image (1, 3, 5, …) | /LDS — lower byte |
+| `chip_u2_hi.bin` | U1 (D8–D15) | even bytes of ROM image (0, 2, 4, …) | /UDS — upper byte |
+| `chip_u1_lo.bin` | U2 (D0–D7) | odd bytes of ROM image (1, 3, 5, …) | /LDS — lower byte |
 
 For a banked image, lay each bank consecutively: bank 0 at offset `0x000000`, bank 1 at `0x010000`, …, bank 7 at `0x070000`. Each bank occupies 64 KB (0x10000 bytes) in each file.
 
@@ -303,8 +305,8 @@ Each chip receives de-interleaved bytes from the combined image:
 
 | File | Chip | Derivation | Pin |
 |---|---|---|---|
-| `chip_u1_lo.bin` | U1 (D0–D7) | `combined[2n+1]`  odd bytes | /LDS strobe |
-| `chip_u2_hi.bin` | U2 (D8–D15) | `combined[2n]`  even bytes | /UDS strobe |
+| `chip_u1_lo.bin` | U2 (D0–D7) | `combined[2n+1]`  odd bytes | /LDS strobe |
+| `chip_u2_hi.bin` | U1 (D8–D15) | `combined[2n]`  even bytes | /UDS strobe |
 
 For a W29C040 with 8 banks, each chip file is 512 KB. Bank N starts at byte offset `N × 0x10000` in each file.
 
@@ -335,8 +337,8 @@ make pack
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 
 # 4. Program the chips (out-of-circuit)
-#    U1 ← out/chip_u1_lo.bin  (512 KB for W29C040)
-#    U2 ← out/chip_u2_hi.bin  (512 KB for W29C040)
+#    U1 ← out/chip_u2_hi.bin  (512 KB for W29C040, D8–D15 / high byte)
+#    U2 ← out/chip_u1_lo.bin  (512 KB for W29C040, D0–D7 / low byte)
 
 # 5. Set SW1 to the desired bank and insert into the cartridge
 ```
@@ -365,9 +367,9 @@ for traceability.
 | /ROM4 → Chip A15 | ✅ |
 | DIP switch (B_SW1/2/3) → Chip A16/A17/A18 | ✅ |
 | ROM_CE → Chip /CE (both U1, U2) | ✅ |
-| U1 /OE → /LDS (low byte strobe) | ✅ |
-| U2 /OE → /UDS (high byte strobe) | ✅ |
-| /WE → +5V (both chips, write protect) | ✅ |
-| U1 D0–D7 → ST D0–D7 | ✅ |
-| U2 D0–D7 → ST D8–D15 | ✅ |
+| U1 /OE → /UDS (high byte strobe) | ✅ |
+| U2 /OE → /LDS (low byte strobe) | ✅ |
+| /WE → ROM_~{WE} → R5 (4.7 kΩ) → +5V (both chips, write protect) | ✅ |
+| U1 D0–D7 → ST D8–D15 | ✅ |
+| U2 D0–D7 → ST D0–D7 | ✅ |
 | VCC, GND, decoupling capacitors | ✅ |

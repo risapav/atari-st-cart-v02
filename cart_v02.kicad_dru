@@ -1,0 +1,41 @@
+(version 1)
+
+# Základné pravidlá optimalizované pre THT (vývodové) súčiastky a ručné spájkovanie
+(rule "THT_Standard_Limits"
+  (constraint clearance (min 0.25mm))
+  (constraint track_width (min 0.25mm) (opt 0.3mm))
+  (constraint via_diameter (min 0.8mm))
+  (constraint via_drill (min 0.4mm))
+  (constraint annular_width (min 0.25mm))
+  (constraint hole_clearance (min 0.3mm))
+  (constraint edge_clearance (min 0.5mm))
+  (constraint silk_clearance (min 0.2mm))
+)
+
+# Výnimka pre hranový konektor (Atari ST Cartridge Edge Connector)
+# Umožňuje kontaktom prísť až k okraju dosky bez DRC chyby
+(rule "Atari_Edge_Connector"
+  (condition "A.hasNetclass('Edge_Pins') || A.Footprint == '*Edge*'")
+  (constraint edge_clearance (min 0.0mm))
+)
+
+# Napájacie vetvy (+5V, GND) pre 2x W29C040 (hrubšie cesty pre stabilné napájanie)
+(rule "Power_5V_Bus"
+  (condition "A.NetClass == 'Power'")
+  (constraint track_width (min 0.6mm) (opt 0.8mm))
+  (constraint clearance (min 0.3mm))
+  (constraint via_diameter (min 1.0mm))
+  (constraint via_drill (min 0.5mm))
+)
+
+# Zbernice (Adresová A0-A18 a Dátová D0-D15) - bezpečné vedenie medzi pinmi DIP-32
+(rule "Address_Data_Bus"
+  (condition "A.NetClass == 'Bus'")
+  (constraint track_width (min 0.25mm) (opt 0.3mm))
+  (constraint clearance (min 0.25mm))
+)
+
+# Väčší rozostup tiel pre pohodlné ručné osádzanie THT súčiastok a pätíc DIP-32
+(rule "THT_Courtyard_Spacing"
+  (constraint courtyard_clearance (min 0.5mm))
+)

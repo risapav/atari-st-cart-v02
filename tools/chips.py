@@ -68,22 +68,24 @@ def split_to_chips(combined: bytes | bytearray) -> tuple[bytearray, bytearray]:
     De-interleave kombinovaného obrazu na chip súbory.
 
     Kombinovaný obraz (big-endian, 68000 formát):
-      offset 0: high byte slova na $FAxxxx  → U2 (D8–D15)
-      offset 1: low  byte slova na $FAxxxx  → U1 (D0–D7)
-      offset 2: high byte nasledujúceho slova → U2
+      offset 0: high byte slova na $FAxxxx  → U1 socket (D8–D15, /UDS)
+      offset 1: low  byte slova na $FAxxxx  → U2 socket (D0–D7, /LDS)
+      offset 2: high byte nasledujúceho slova → U1 socket
       ...
 
     Returns: (u1_lo, u2_hi)
+      u1_lo = nepárne bajty (D0–D7) → chip_u1_lo.bin → programuje sa do socketu U2
+      u2_hi = párne bajty (D8–D15) → chip_u2_hi.bin → programuje sa do socketu U1
     """
-    u2 = bytearray(combined[0::2])  # párne offsety → hi byte → U2
-    u1 = bytearray(combined[1::2])  # nepárne offsety → lo byte → U1
+    u2 = bytearray(combined[0::2])  # párne offsety → hi byte (D8–D15) → chip_u2_hi.bin → socket U1
+    u1 = bytearray(combined[1::2])  # nepárne offsety → lo byte (D0–D7) → chip_u1_lo.bin → socket U2
     return u1, u2
 
 
 def merge_from_chips(u1: bytes | bytearray, u2: bytes | bytearray) -> bytearray:
-    """Spoji U1 (lo) a U2 (hi) chip súbory späť do kombinovaného obrazu."""
+    """Spoji chip_u1_lo (D0–D7, socket U2) a chip_u2_hi (D8–D15, socket U1) späť do kombinovaného obrazu."""
     if len(u1) != len(u2):
-        raise ValueError(f"U1 ({len(u1)} B) a U2 ({len(u2)} B) musia mať rovnakú veľkosť.")
+        raise ValueError(f"chip_u1_lo ({len(u1)} B) a chip_u2_hi ({len(u2)} B) musia mať rovnakú veľkosť.")
     combined = bytearray(len(u1) * 2)
     combined[0::2] = u2
     combined[1::2] = u1

@@ -2,7 +2,7 @@
 
 A set of Python scripts for preparing ROM programs for physical chip programming of the
 `cart_v02` cartridge. The scripts handle bank-boundary alignment, concatenation of multiple
-programs, and splitting the resulting image into LO (U1) and HI (U2) chip files.
+programs, and splitting the resulting image into LO (U2) and HI (U1) chip files.
 
 ---
 
@@ -56,10 +56,10 @@ Standard Motorola 68000 big-endian binary image. Each 16-bit word is stored at a
 address with the high byte first:
 
 ```
-offset 0x000000: high byte of word at ST $FA0000  → U2 (D8–D15)
-offset 0x000001: low  byte of word at ST $FA0000  → U1 (D0–D7)
-offset 0x000002: high byte of word at ST $FA0002  → U2
-offset 0x000003: low  byte of word at ST $FA0002  → U1
+offset 0x000000: high byte of word at ST $FA0000  → U1 (D8–D15)
+offset 0x000001: low  byte of word at ST $FA0000  → U2 (D0–D7)
+offset 0x000002: high byte of word at ST $FA0002  → U1
+offset 0x000003: low  byte of word at ST $FA0002  → U2
 ...
 ```
 
@@ -69,12 +69,12 @@ Each chip receives **de-interleaved** bytes from the combined image:
 
 | File | Chip | Content | Byte strobe |
 |---|---|---|---|
-| `chip_u1_lo.bin` | U1 | odd bytes (D0–D7) | /LDS |
-| `chip_u2_hi.bin` | U2 | even bytes (D8–D15) | /UDS |
+| `chip_u1_lo.bin` | U2 | odd bytes (D0–D7) | /LDS |
+| `chip_u2_hi.bin` | U1 | even bytes (D8–D15) | /UDS |
 
 ```
-chip_u1_lo[n] = combined[2n + 1]   (low byte of each word)
-chip_u2_hi[n] = combined[2n + 0]   (high byte of each word)
+chip_u1_lo[n] = combined[2n + 1]   (low byte of each word → programs into U2)
+chip_u2_hi[n] = combined[2n + 0]   (high byte of each word → programs into U1)
 ```
 
 ### Per-bank files
@@ -158,11 +158,11 @@ python3 rom_pack.py prg/ --pad 0x00
 
 ```
 out/
-├── chip_u1_lo.bin           — full U1 image (512 KB for W29C040, 128 KB for TC57H1000)
-├── chip_u2_hi.bin           — full U2 image
-├── bank0_lo.bin             — 64 KB bank 0 for U1
-├── bank0_hi.bin             — 64 KB bank 0 for U2
-├── bank1_lo.bin             — 64 KB bank 1 for U1
+├── chip_u1_lo.bin           — full U2 image (512 KB for W29C040, 128 KB for TC57H1000)
+├── chip_u2_hi.bin           — full U1 image
+├── bank0_lo.bin             — 64 KB bank 0 for U2
+├── bank0_hi.bin             — 64 KB bank 0 for U1
+├── bank1_lo.bin             — 64 KB bank 1 for U2
 ├── bank1_hi.bin             — ...
 ├── bank0_BUGBCRT2.STC       — (directory input only) source copy for bank 0
 ├── bank1_DiagROMCart.rom    — source copy for bank 1
@@ -449,8 +449,8 @@ make pack
 make info
 
 # 4. Program chips (with external programmer)
-#    U1 ← out/chip_u1_lo.bin
-#    U2 ← out/chip_u2_hi.bin
+#    U1 ← out/chip_u2_hi.bin  (D8–D15 / high byte)
+#    U2 ← out/chip_u1_lo.bin  (D0–D7 / low byte)
 
 # 5. Set DIP switch SW1
 #    Bank 0: SW1-1=0, SW1-2=0, SW1-3=0
@@ -479,8 +479,8 @@ make pack
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 
 # 4. Program chips
-#    U1 ← out/chip_u1_lo.bin  (512 KB)
-#    U2 ← out/chip_u2_hi.bin  (512 KB)
+#    U1 ← out/chip_u2_hi.bin  (512 KB, D8–D15 / high byte)
+#    U2 ← out/chip_u1_lo.bin  (512 KB, D0–D7 / low byte)
 
 # 5. Set DIP switch SW1 for the desired program
 #    (order = per prg/pack_order.txt or alphabetical on first run):
@@ -506,7 +506,7 @@ make validate CHIP=tc57h1000 VALDIR=build/
 # 3. Check + SW1 warnings
 make info CHIP=tc57h1000 OUTDIR=build/
 
-# 4. Program U1 ← build/chip_u1_lo.bin, U2 ← build/chip_u2_hi.bin
+# 4. Program U1 ← build/chip_u2_hi.bin, U2 ← build/chip_u1_lo.bin
 # 5. SW1-3 must remain OPEN (VPP); SW1-1 selects bank 0 or 1
 ```
 

@@ -11,9 +11,9 @@ Použitie:
   python3 rom_split.py combined.bin --info          # len zobraz informácie
 
 Formát kombinovaného obrazu (68000 big-endian):
-  offset 0x000000: high byte slova na ST $FA0000  → U2 (D8–D15)
-  offset 0x000001: low  byte slova na ST $FA0000  → U1 (D0–D7)
-  offset 0x000002: high byte slova na ST $FA0002  → U2
+  offset 0x000000: high byte slova na ST $FA0000  → U1 socket (D8–D15, /UDS) → chip_u2_hi.bin
+  offset 0x000001: low  byte slova na ST $FA0000  → U2 socket (D0–D7, /LDS)  → chip_u1_lo.bin
+  offset 0x000002: high byte slova na ST $FA0002  → U1 socket
   ...
 """
 
@@ -121,8 +121,8 @@ def split(args):
     u1, u2 = split_to_chips(data)
 
     print(f"  Kombinovaný obraz: {fmt_size(len(data))}  sha1:{sha1_short(data)}")
-    print(f"  U1 (lo, D0–D7):   {fmt_size(len(u1))}  sha1:{sha1_short(u1)}")
-    print(f"  U2 (hi, D8–D15):  {fmt_size(len(u2))}  sha1:{sha1_short(u2)}")
+    print(f"  chip_u1_lo (D0–D7, socket U2):  {fmt_size(len(u1))}  sha1:{sha1_short(u1)}")
+    print(f"  chip_u2_hi (D8–D15, socket U1): {fmt_size(len(u2))}  sha1:{sha1_short(u2)}")
     print()
 
     if args.info:

@@ -14,12 +14,12 @@ Cieľom je overiť, že hardvérové zapojenie (podľa schémy Rev 1.1) dekóduj
 a prenáša dáta správne — bez nutnosti fyzického hardware.
 
 Simulácia modeluje:
-- Dvojicu W29C040-90B Flash EEPROM čipov (U1 = lo bajt, U2 = hi bajt)
+- Dvojicu W29C040-90B Flash EEPROM čipov (U1 = hi bajt D8–D15, U2 = lo bajt D0–D7)
 - Dekódovanie adries ST A1–A15 → chip A0–A14
 - Signál /ROM4 → chip A15 (odlíšenie $FA / $FB regiónu)
 - DIP switch SW1 (B_SW1/B_SW2/B_SW3) → chip A16/A17/A18 (bank select)
 - CE logiku (wired-AND D1+D2 cez BAT42, R4 pull-up)
-- Byte strobe signály /LDS → U1 /OE, /UDS → U2 /OE
+- Byte strobe signály /UDS → U1 /OE, /LDS → U2 /OE
 
 ---
 
@@ -32,10 +32,10 @@ test/
 ├── generate_test_roms.py   — generátor testovacích ROM súborov
 ├── run_tests.py            — testovací runner (T01–T08)
 └── roms/
-    ├── chip_u1_lo.bin      — 512 KB testovací obraz U1 (lo bajty)
-    ├── chip_u2_hi.bin      — 512 KB testovací obraz U2 (hi bajty)
-    ├── bank0_lo.bin        — 64 KB bank 0 pre U1
-    ├── bank0_hi.bin        — 64 KB bank 0 pre U2
+    ├── chip_u1_lo.bin      — 512 KB testovací obraz U2 (lo bajty, D0–D7)
+    ├── chip_u2_hi.bin      — 512 KB testovací obraz U1 (hi bajty, D8–D15)
+    ├── bank0_lo.bin        — 64 KB bank 0 pre U2
+    ├── bank0_hi.bin        — 64 KB bank 0 pre U1
     ├── bank1_lo.bin … bank7_hi.bin  — banky 1–7
 ```
 
@@ -49,12 +49,15 @@ Každý bank obsahuje 128 KB kombinovaného obsahu, rozdeleného na dva **64 KB*
 
 | Súbor | Čip | Dátová linka | Byte strobe |
 |---|---|---|---|
-| `bankN_lo.bin` | U1 | D0–D7 (dolný bajt) | /LDS |
-| `bankN_hi.bin` | U2 | D8–D15 (horný bajt) | /UDS |
+| `bankN_lo.bin` | U2 | D0–D7 (dolný bajt) | /LDS |
+| `bankN_hi.bin` | U1 | D8–D15 (horný bajt) | /UDS |
 
 68000 neposkytuje A0 — výber bajtu je realizovaný cez /UDS a /LDS:
-- Párna adresa (even byte): U2 platí → D8–D15 → `rom_hi.bin`
-- Nepárna adresa (odd byte): U1 platí → D0–D7 → `rom_lo.bin`
+- Párna adresa (even byte): U1 platí → D8–D15 → `rom_hi.bin`
+- Nepárna adresa (odd byte): U2 platí → D0–D7 → `rom_lo.bin`
+
+> **Poznámka k premenným modelu:** V `cartridge_model.py` sa používajú premenné `u1`/`u2`
+> ako logické názvy pre bajt-roly (lo = D0–D7, hi = D8–D15). Fyzicky: socket U1 = chip_u2_hi.bin, socket U2 = chip_u1_lo.bin.
 
 ### Testovací vzorec
 

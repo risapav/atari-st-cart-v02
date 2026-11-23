@@ -12,10 +12,10 @@ Použitie:
   python3 rom_pack.py p1.bin --dry-run
 
 Výstupy (v adresári --out):
-  chip_u1_lo.bin      — plný obraz čipu U1 (lo bajty, D0–D7)
-  chip_u2_hi.bin      — plný obraz čipu U2 (hi bajty, D8–D15)
-  bankN_lo.bin        — 64 KB bank N pre U1  (N = 0 … num_banks-1)
-  bankN_hi.bin        — 64 KB bank N pre U2
+  chip_u1_lo.bin      — lo bajty (D0–D7, /LDS) → programuje sa do socketu U2
+  chip_u2_hi.bin      — hi bajty (D8–D15, /UDS) → programuje sa do socketu U1
+  bankN_lo.bin        — 64 KB bank N (lo/D0–D7) pre socket U2  (N = 0 … num_banks-1)
+  bankN_hi.bin        — 64 KB bank N (hi/D8–D15) pre socket U1
   combined.bin        — kombinovaný 16-bit obraz (voliteľne)
 """
 

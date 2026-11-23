@@ -5,7 +5,7 @@ https://github.com/risapav/atari-st-cart-v02
 
 A read-only ROM cartridge PCB for the Atari ST/STE/Mega family.  
 Two Winbond W29C040-90B Flash EEPROMs work in parallel to provide a full 16-bit data bus.  
-A 3-position DIP switch selects one of 8 banks of 128 KB, giving up to **1 MB** of banked ROM storage.
+A 4-position DIP switch (positions 1–3 active, position 4 unconnected) selects one of 8 banks of 128 KB, giving up to **1 MB** of banked ROM storage.
 
 ---
 
@@ -13,13 +13,13 @@ A 3-position DIP switch selects one of 8 banks of 128 KB, giving up to **1 MB** 
 
 | Feature | Detail |
 |---|---|
-| Data bus | 16-bit (U1 → D0–D7 low byte, U2 → D8–D15 high byte) |
+| Data bus | 16-bit (U1 → D8–D15 high byte, U2 → D0–D7 low byte) |
 | ROM chips | 2× Winbond W29C040-90B (512 K × 8, DIP-32, 90 ns) |
 | Total capacity | 1 MB (8 banks × 128 KB) |
 | Address window | `$FA0000`–`$FBFFFF` (256 KB visible at once) |
-| Bank switching | 3-bit DIP switch (SW1) on chip A16–A18 |
+| Bank switching | 4-bit DIP switch (SW1), positions 1–3 on chip A16–A18 (position 4 NC) |
 | Chip select | Wired-AND of /ROM3 + /ROM4 via BAT42 diodes + 10 kΩ pull-up |
-| Write-protect | /WE permanently tied to +5 V — the ST cannot write to the chip |
+| Write-protect | /WE pulled to +5 V via R5 (4.7 kΩ) — the ST cannot write to the chip |
 | Board size | 42 × 68 mm |
 | Connector | 40-pin dual-row edge connector, 2 mm pitch (Atari CB101494) |
 
@@ -39,9 +39,9 @@ SW1-1 (A16)     →   A16         ┐
 SW1-2 (A17)     →   A17         ├ bank select (8 banks)
 SW1-3 (A18)     →   A18         ┘
 /ROM3 AND /ROM4 →   /CE (both chips, wired-AND)
-/LDS            →   /OE on U1 (D0–D7, low byte chip)
-/UDS            →   /OE on U2 (D8–D15, high byte chip)
-/WE             →   +5V (write-protect)
+/UDS            →   /OE on U1 (D8–D15, high byte chip)
+/LDS            →   /OE on U2 (D0–D7, low byte chip)
+/WE             →   ROM_~{WE} → R5 (4.7 kΩ) → +5V   write-protect
 ```
 
 The full 256 KB window (`$FA0000`–`$FBFFFF`) is split by the /ROM4 signal:
@@ -80,15 +80,17 @@ Each chip holds 64 KB per bank (0x10000 bytes); the combined 16-bit content per 
 
 | Ref | Value / Part | Package | LCSC | Note |
 |---|---|---|---|---|
-| U1, U2 | Winbond W29C040-90B | DIP-32 W15.24 mm | C2331 | 512 K × 8 Flash EEPROM, 90 ns |
+| U1, U2 | Winbond W29C040-90B | DIP-32 W15.24 mm | C2331 | 512 K × 8 Flash EEPROM; U1 = high byte (D8–D15, /UDS), U2 = low byte (D0–D7, /LDS) |
 | J1 | Atari ST cartridge port | 2×20 edge, 2 mm pitch | — | CB101494 compatible |
-| SW1 | 3-pos slide DIP switch | THT 7.62 mm pitch | C501525 | bank select A16–A18 |
+| SW1 | 4-pos slide DIP switch (pin 4 NC) | THT W7.62 mm P2.54 mm | — | bank select A16–A18 on positions 1–3 |
 | D1, D2 | BAT42 | DO-35 axial | C2798198 | wired-AND for /CE |
 | R1 | 10 kΩ | axial | C2903232 | pull-up for chip A16 |
 | R2 | 10 kΩ | axial | C2903232 | pull-up for chip A17 |
 | R3 | 10 kΩ | axial | C2903232 | pull-up for chip A18 (also VPP for TC57H1000) |
 | R4 | 10 kΩ | axial | C2903232 | pull-up on /CE wired-AND node |
+| R5 | 4.7 kΩ | axial | C120071 | pull-up for /WE (ROM_~{WE}) |
 | C1, C2 | 100 nF | 0805 | C83055 | decoupling, one per chip |
+| C3 | 22 µF | THT radial D5 mm P2 mm | C43845 | bulk decoupling |
 
 ### Alternative chip: TC57H1000AD-85
 
@@ -197,8 +199,8 @@ make pack SRCS="game.bin other.rom"   # no spaces in filenames
 Manual procedure (without scripts):
 
 1. Prepare two binary files by de-interleaving the combined ROM image:
-   - `chip_u2_hi.bin` — even bytes (D8–D15, upper byte) → **U2**
-   - `chip_u1_lo.bin` — odd bytes (D0–D7, lower byte) → **U1**
+   - `chip_u2_hi.bin` — even bytes (D8–D15, upper byte) → **U1**
+   - `chip_u1_lo.bin` — odd bytes (D0–D7, lower byte) → **U2**
 2. For a banked image, place each bank at offset `bank × 0x10000` in each chip file.
 3. Program each chip file into the respective chip using any W29C040-compatible EEPROM programmer.
 4. Insert chips with correct orientation (pin 1 at the notch end).
