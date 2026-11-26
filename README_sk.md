@@ -1,6 +1,6 @@
 # Atari ST ROM Cartridge v2 — 2× W29C040-90B (16-bit)
 
-**KiCad 10 projekt · Rev 1.1 · 2026-11-08 · risapav**  
+**KiCad 10 projekt · Rev 1.2 · 2026-11-26 · risapav**  
 https://github.com/risapav/atari-st-cart-v02
 
 ROM cartridge PCB (len na čítanie) pre rodinu Atari ST/STE/Mega.  
@@ -130,11 +130,12 @@ cart_v02/
 ├── cart_v02.kicad_pcb      — layout DPS
 ├── my-libs/                — projektové knižnice symbolov a footprintov
 ├── production/             — výrobné výstupy (rev 1.1)
-│   ├── Atari_ST_ROM_Cartridge_v2__2_W29C040-90B_16-bit_1.1.zip
+│   ├── Atari_ST_ROM_Cartridge_v2__2_W29C040-90B_16-bit_1.2.zip
 │   ├── bom.csv
 │   ├── designators.csv
 │   ├── netlist.ipc
-│   └── positions.csv
+│   ├── positions.csv
+│   └── JLCPCB_ORDER.md     — parametre a postup objednania na JLCPCB
 ├── tools/                  — Python skripty na prípravu ROM obrazov
 │   ├── chips.py            — definície čipov (W29C040, TC57H1000)
 │   ├── rom_pack.py         — zabaľ adresár alebo zoznam súborov → chip súbory (auto-strip STC)
