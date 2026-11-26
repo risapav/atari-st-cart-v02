@@ -19,7 +19,7 @@
   (constraint hole_to_hole        (min 0.5mm))
   (constraint hole_clearance      (min 0.3mm))
   (constraint edge_clearance      (min 0.5mm))
-  (constraint silk_clearance      (min 0.15mm))
+  (constraint silk_clearance      (min 0.1mm))
   (constraint courtyard_clearance (min 0.5mm))
 )
 
@@ -36,14 +36,13 @@
 # Napájacie vetvy (+5V a GND)
 #   Prúdová záťaž: 2× W29C040-90B ICC1_max = 2 × 60 mA = 120 mA
 #   IPC-2221A, 1 oz Cu, ΔT = 10 °C: 0.6 mm → ~300 mA (2.5× rezerva)
-#   opt 1.0 mm: nižšia indukčnosť, stabilita napájania
 #
 #   POŽIADAVKA: v Board Setup → Design Rules → Net Classes
 #     → pridaj triedu "Power" a priraď siete +5V a GND
 # -----------------------------------------------------------------------------
 (rule "Power_Rail"
   (condition "A.NetClass == 'Power'")
-  (constraint track_width   (min 0.6mm)  (opt 1.0mm))
+  (constraint track_width   (min 0.6mm)  (opt 0.6mm))
   (constraint clearance     (min 0.3mm))
   (constraint via_diameter  (min 0.8mm))
 )

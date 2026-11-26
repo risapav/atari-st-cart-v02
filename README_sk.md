@@ -13,14 +13,14 @@ Dva Flash EEPROM Winbond W29C040-90B pracujú paralelne a zabezpečujú plnú 16
 
 | Vlastnosť | Detail |
 |---|---|
-| Dátová zbernica | 16-bit (U1 → D8–D15 vyšší bajt, U2 → D0–D7 nižší bajt) |
+| Dátová zbernica | 16-bit (U1 → D0–D7 nižší bajt, U2 → D8–D15 vyšší bajt) |
 | ROM čipy | 2× Winbond W29C040-90B (512 K × 8, DIP-32, 90 ns) |
 | Celková kapacita | 1 MB (8 bankov × 128 KB) |
 | Adresové okno | `$FA0000`–`$FBFFFF` (256 KB viditeľných naraz) |
 | Prepínanie bankov | 4-bitový DIP prepínač (SW1), polohy 1–3 na čipových A16–A18 (poloha 4 NC) |
-| Chip select | Wired-AND z /ROM3 + /ROM4 cez BAT42 diódy + 10 kΩ pull-up |
-| Ochrana zápisu | /WE potiahnutý na +5 V cez R5 (4,7 kΩ) — ST nemôže zapisovať do čipu |
-| Rozmer dosky | 42 × 68 mm |
+| Chip select | Wired-AND z /ROM3 + /ROM4 cez BAT42 diódy + 4,7 kΩ pull-up |
+| Ochrana zápisu | /WE potiahnutý na +5 V cez R5 (10 kΩ) — ST nemôže zapisovať do čipu |
+| Rozmer dosky | 47,5 × 90,2 mm celkovo (jazyk hrany konektora 42 mm) |
 | Konektor | 40-pinový dvojradový hranový konektor, rozstup 2 mm (Atari CB101494) |
 
 ---
@@ -39,9 +39,9 @@ SW1-1 (A16)         →   A16         ┐
 SW1-2 (A17)         →   A17         ├ výber banku (8 bankov)
 SW1-3 (A18)         →   A18         ┘
 /ROM3 AND /ROM4     →   /CE (oba čipy, wired-AND)
-/UDS                →   /OE na U1 (D8–D15, čip vyššieho bajtu)
-/LDS                →   /OE na U2 (D0–D7, čip nižšieho bajtu)
-/WE                 →   ROM_~{WE} → R5 (4,7 kΩ) → +5V   ochrana zápisu
+/UDS                →   /OE na U2 (D8–D15, čip vyššieho bajtu)
+/LDS                →   /OE na U1 (D0–D7, čip nižšieho bajtu)
+/WE                 →   ROM_~{WE} → R5 (10 kΩ) → +5V    ochrana zápisu
 ```
 
 Celé 256 KB okno (`$FA0000`–`$FBFFFF`) je rozdelené signálom /ROM4:
@@ -80,17 +80,18 @@ Každý čip obsahuje 64 KB na bank (0x10000 bajtov); kombinovaný 16-bitový ob
 
 | Ref | Hodnota / Diel | Puzdro | LCSC | Poznámka |
 |---|---|---|---|---|
-| U1, U2 | Winbond W29C040-90B | DIP-32 W15.24 mm | C2331 | 512 K × 8 Flash EEPROM; U1 = horný bajt (D8–D15, /UDS), U2 = dolný bajt (D0–D7, /LDS) |
+| U1, U2 | Winbond W29C040-90B | DIP-32 W15.24 mm | C2331 | 512 K × 8 Flash EEPROM; U1 = dolný bajt (D0–D7, /LDS), U2 = horný bajt (D8–D15, /UDS) |
 | J1 | Atari ST cartridge port | 2×20 hranový, rozstup 2 mm | — | kompatibilný CB101494 |
 | SW1 | 4-polohový posuvný DIP prepínač (pin 4 NC) | THT W7.62 mm P2.54 mm | — | výber banku A16–A18 na polohách 1–3 |
-| D1, D2 | BAT42 | DO-35 axiálny | C2798198 | wired-AND pre /CE |
-| R1 | 10 kΩ | axiálny | C2903232 | pull-up pre čip A16 |
-| R2 | 10 kΩ | axiálny | C2903232 | pull-up pre čip A17 |
-| R3 | 10 kΩ | axiálny | C2903232 | pull-up pre čip A18 (aj VPP pre TC57H1000) |
-| R4 | 10 kΩ | axiálny | C2903232 | pull-up na uzle wired-AND /CE |
-| R5 | 4,7 kΩ | axiálny | C120071 | pull-up pre /WE (ROM_~{WE}) |
-| C1, C2 | 100 nF | 0805 | C83055 | blokovací kondenzátor, jeden na čip |
-| C3 | 22 µF | THT radiálny D5 mm P2 mm | C43845 | blokování bulk |
+| D1, D2 | BAT42 | SOD-123 SMD | C134396 | wired-AND pre /CE |
+| R1 | 10 kΩ | 0805 SMD | C100047 | pull-up pre čip A16 |
+| R2 | 10 kΩ | 0805 SMD | C100047 | pull-up pre čip A17 |
+| R3 | 10 kΩ | 0805 SMD | C100047 | pull-up pre čip A18 (aj VPP pre TC57H1000) |
+| R4 | 4,7 kΩ | 0805 SMD | C60816 | pull-up na uzle wired-AND /CE |
+| R5 | 10 kΩ | 0805 SMD | C100047 | pull-up pre /WE (ROM_~{WE}) |
+| C1, C2 | 100 nF | 0805 SMD | C83055 | blokovací kondenzátor, jeden na čip |
+| C3 | 22 µF | THT radiálny D5 mm P2 mm | C43845 | blokovací bulk kondenzátor |
+| JP1 | SolderJumper_2_Open | SMD 2-pad | — | prepoj pre konfiguráciu bank-select; nechaj OTVORENÝ pri použití TC57H1000AD |
 
 ### Alternatívny čip: TC57H1000AD-85
 
@@ -115,7 +116,7 @@ TC57H1000AD-85 (Toshiba 1 M × 8 SRAM) možno použiť namiesto W29C040 s týmit
 `|<|` = Katóda (K) na strane signálu, Anóda (A) na strane /CE.
 
 Diódy D1 a D2 realizujú pasívny wired-OR na aktívne-nízke signály: /CE sa prepne na LOW kedykoľvek je **niektorý** z /ROM3 alebo /ROM4 LOW.  
-Keď sú oba signály HIGH (žiadny prístup), R4 (10 kΩ) drží /CE HIGH (čipy deaktivované).  
+Keď sú oba signály HIGH (žiadny prístup), R4 (4,7 kΩ) drží /CE HIGH (čipy deaktivované).  
 V praxi /ROM3 a /ROM4 nie sú nikdy oba LOW súčasne na zbernici ST, takže to efektívne aktivuje čipy pri prístupe do KTOREJKOĽVEK oblasti.
 
 ---
@@ -200,8 +201,8 @@ make pack SRCS="game.bin other.rom"   # bez medzier v názvoch súborov
 Manuálny postup (bez skriptov):
 
 1. Priprav dva binárne súbory de-interleave-ovaním kombinovaného ROM obrazu:
-   - `chip_u2_hi.bin` — párne bajty (D8–D15, vyšší bajt) → **U1**
-   - `chip_u1_lo.bin` — nepárne bajty (D0–D7, nižší bajt) → **U2**
+   - `chip_u1_lo.bin` — nepárne bajty (D0–D7, nižší bajt) → **U1**
+   - `chip_u2_hi.bin` — párne bajty (D8–D15, vyšší bajt) → **U2**
 2. Pre bankovaný obraz umiestni každý bank na offset `bank × 0x10000` v každom chip súbore.
 3. Naprogramuj každý chip súbor do príslušného čipu pomocou programátora kompatibilného s W29C040.
 4. Vlož čipy so správnou orientáciou (pin 1 pri zárezu).

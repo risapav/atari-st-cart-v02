@@ -49,7 +49,7 @@ Keď signál prejde na LOW, prúd tečie z ROM_CE (Anóda, potiahnutá na HIGH c
 - `ST_~{UDS}`, `ST_~{LDS}` — signály bytového strobu
 - `B_SW1`, `B_SW2`, `B_SW3` — výstupy DIP prepínača pre výber banku (SW1 polohy 1–3; poloha 4 je NC)
 - `ROM_CE` — výstup wired-AND na piny /CE oboch čipov
-- `ROM_~{WE}` — sieť /WE potiahnutá na +5 V cez R5 (4,7 kΩ); pin 31 (/WE) oboch čipov
+- `ROM_~{WE}` — sieť /WE potiahnutá na +5 V cez R5 (10 kΩ); pin 31 (/WE) oboch čipov
 
 Lokálne labely sú v KiCad platné len v rámci listu a nemôžu kolizovať s inými globálnymi sieťami. ✓
 
@@ -57,9 +57,9 @@ Lokálne labely sú v KiCad platné len v rámci listu a nemôžu kolizovať s i
 
 ## Úplné overenie zapojenia
 
-### U1 — Čip vyššieho bajtu (D8–D15, /UDS)
+### U1 — Čip nižšieho bajtu (D0–D7, /LDS)
 
-U1 umiestnený na pozícii (165,1; 121,92).
+U1 umiestnený na pozícii (240,03; 121,92).
 
 | Pin čipu | Signál | Stav |
 |---|---|---|
@@ -83,26 +83,26 @@ U1 umiestnený na pozícii (165,1; 121,92).
 | Pin 30 (A17) | `B_SW2`  | ✓ |
 | Pin 1 (A18)  | `B_SW3`  | ✓ |
 | Pin 22 (/CE) | `ROM_CE` | ✓ — výstup wired-AND |
-| Pin 24 (/OE) | `ST_~{UDS}` | ✓ — strob vyššieho bajtu |
-| Pin 31 (/WE) | `ROM_~{WE}` (R5 4,7 kΩ → +5V) | ✓ — ochrana proti zápisu |
+| Pin 24 (/OE) | `ST_~{LDS}` | ✓ — strob nižšieho bajtu |
+| Pin 31 (/WE) | `ROM_~{WE}` (R5 10 kΩ → +5V) | ✓ — ochrana proti zápisu |
 | Pin 32 (VCC) | +5V | ✓ |
 | Pin 16 (GND) | GND | ✓ |
-| Piny 13–21 (D0–D7) | `ST_D8`–`ST_D15` | ✓ |
+| Piny 13–21 (D0–D7) | `ST_D0`–`ST_D7` | ✓ |
 
-### U2 — Čip nižšieho bajtu (D0–D7, /LDS)
+### U2 — Čip vyššieho bajtu (D8–D15, /UDS)
 
-U2 umiestnený na pozícii (240,03; 121,92). Rovnaké zapojenie adresových a riadiacich pinov ako U1 (overené pin po pine), s dvoma rozdielmi:
+U2 umiestnený na pozícii (165,1; 121,92). Rovnaké zapojenie adresových a riadiacich pinov ako U1 (overené pin po pine), s dvoma rozdielmi:
 
 | Pin čipu | Signál | Poznámka |
 |---|---|---|
-| Pin 24 (/OE) | `ST_~{LDS}` | ✓ — strob nižšieho bajtu |
-| Pin 31 (/WE) | `ROM_~{WE}` (R5 4,7 kΩ → +5V) | ✓ |
-| Piny 13–21 (D0–D7) | `ST_D0`–`ST_D7` | ✓ — dolný bajt |
+| Pin 24 (/OE) | `ST_~{UDS}` | ✓ — strob vyššieho bajtu |
+| Pin 31 (/WE) | `ROM_~{WE}` (R5 10 kΩ → +5V) | ✓ |
+| Piny 13–21 (D0–D7) | `ST_D8`–`ST_D15` | ✓ — horný bajt |
 
 ### Logika výberu čipu
 
 Uzol ROM_CE (wired-AND) je pripojený na:
-- R4 (10 kΩ) pull-up na +5V
+- R4 (4,7 kΩ) pull-up na +5V
 - Anódu D1 (K → `ST_~{ROM4}`)
 - Anódu D2 (K → `ST_~{ROM3}`)
 - /CE (pin 22) oboch čipov
@@ -204,8 +204,8 @@ Kombinovaný 16-bit obsah: 8 × 128 KB = **1 MB**. ✓
 
 | Súbor | Čip | Obsah | Výber bajtu |
 |---|---|---|---|
-| `chip_u2_hi.bin` | U1 (D8–D15) | párne bajty ROM obrazu (0, 2, 4, …) | /UDS — horný bajt |
-| `chip_u1_lo.bin` | U2 (D0–D7) | nepárne bajty ROM obrazu (1, 3, 5, …) | /LDS — dolný bajt |
+| `chip_u1_lo.bin` | U1 (D0–D7) | nepárne bajty ROM obrazu (1, 3, 5, …) | /LDS — dolný bajt |
+| `chip_u2_hi.bin` | U2 (D8–D15) | párne bajty ROM obrazu (0, 2, 4, …)  | /UDS — horný bajt |
 
 Pre bankovaný obraz sa banky ukladajú za sebou: bank 0 na offset `0x000000`, bank 1 na `0x010000`, …, bank 7 na `0x070000`. Každý bank zaberá 64 KB (0x10000 bajtov) v každom súbore.
 
@@ -304,8 +304,8 @@ Každý čip dostane de-interleaved bajty z kombinovaného obrazu:
 
 | Súbor | Čip | Odvodenie | Pin |
 |---|---|---|---|
-| `chip_u1_lo.bin` | U2 (D0–D7) | `combined[2n+1]`  nepárne bajty | strob /LDS |
-| `chip_u2_hi.bin` | U1 (D8–D15) | `combined[2n]`  párne bajty | strob /UDS |
+| `chip_u1_lo.bin` | U1 (D0–D7) | `combined[2n+1]`  nepárne bajty | strob /LDS |
+| `chip_u2_hi.bin` | U2 (D8–D15) | `combined[2n]`   párne bajty  | strob /UDS |
 
 Pre W29C040 s 8 bankami má každý chip súbor veľkosť 512 KB. Bank N začína na bajtovom offsete `N × 0x10000` v každom súbore.
 
@@ -336,8 +336,8 @@ make pack
 python3 rom_info.py out/chip_u1_lo.bin out/chip_u2_hi.bin
 
 # 4. Programovanie čipov (mimo obvodu)
-#    U1 ← out/chip_u2_hi.bin  (512 KB pre W29C040, D8–D15 / horný bajt)
-#    U2 ← out/chip_u1_lo.bin  (512 KB pre W29C040, D0–D7 / dolný bajt)
+#    U1 ← out/chip_u1_lo.bin  (512 KB pre W29C040, D0–D7 / dolný bajt)
+#    U2 ← out/chip_u2_hi.bin  (512 KB pre W29C040, D8–D15 / horný bajt)
 
 # 5. Nastavenie SW1 na požadovaný bank a vloženie do cartridge
 ```
@@ -366,9 +366,9 @@ kópie zdrojov (`bank{N}_{original_name}`) pre jednoduchú identifikáciu obsahu
 | /ROM4 → Chip A15 | ✅ |
 | DIP prepínač (B_SW1/2/3) → Chip A16/A17/A18 | ✅ |
 | ROM_CE → Chip /CE (oba U1, U2) | ✅ |
-| U1 /OE → /UDS (strob vyššieho bajtu) | ✅ |
-| U2 /OE → /LDS (strob nižšieho bajtu) | ✅ |
-| /WE → ROM_~{WE} → R5 (4,7 kΩ) → +5V (oba čipy, ochrana proti zápisu) | ✅ |
-| U1 D0–D7 → ST D8–D15 | ✅ |
-| U2 D0–D7 → ST D0–D7 | ✅ |
+| U1 /OE → /LDS (strob nižšieho bajtu) | ✅ |
+| U2 /OE → /UDS (strob vyššieho bajtu) | ✅ |
+| /WE → ROM_~{WE} → R5 (10 kΩ) → +5V (oba čipy, ochrana proti zápisu) | ✅ |
+| U1 D0–D7 → ST D0–D7 | ✅ |
+| U2 D0–D7 → ST D8–D15 | ✅ |
 | VCC, GND, blokovacie kondenzátory | ✅ |
